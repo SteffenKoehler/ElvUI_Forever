@@ -10,7 +10,6 @@ UnitFill    left-to-right gradient 53 % -> 100 %, tinted by the bar color
 CastFill    castbar: glossy fill (bright band at the top, darker towards the bottom,
             70 -> 100 % left to right), plain without brush strokes"""
 import math
-import random
 import sys
 from PIL import Image
 
@@ -104,38 +103,13 @@ def unit_fill():
 
 def cast_fill():
     W2, H2 = 512, 16
-    rnd = random.Random(20261016)
-    strokes = []
-    x = 6.0
-    while x < W2 - 6:
-        ang = math.radians(rnd.uniform(18, 38))
-        length = rnd.uniform(10, 22)
-        cx, cy = x, rnd.uniform(9, 11.5)
-        dx, dy = math.cos(ang) * length / 2, -math.sin(ang) * length / 2
-        strokes.append((cx - dx, cy - dy, cx + dx, cy + dy, rnd.uniform(1.3, 2.2), rnd.uniform(0.1, 0.2)))
-        x += rnd.uniform(5, 13)
-
-    def seg_dist(px, py, x0, y0, x1, y1):
-        vx, vy = x1 - x0, y1 - y0
-        t = clamp(((px - x0) * vx + (py - y0) * vy) / (vx * vx + vy * vy))
-        return math.hypot(px - x0 - t * vx, py - y0 - t * vy)
-
     # vertical gloss profile: thin highlight just below the top edge, then a soft fall-off
     gloss = [0.82, 1.0, 1.0, 0.9, 0.82, 0.78, 0.76, 0.75, 0.74, 0.73, 0.72, 0.71, 0.7, 0.68, 0.65, 0.6]
     im = Image.new("RGBA", (W2, H2))
     for y in range(H2):
-        t = y / (H2 - 1)
         for x in range(W2):
-            base = gloss[y] * (0.7 + 0.3 * x / (W2 - 1))
-            px, py = x + 0.5, y + 0.5
-            s = 0.0
-            for x0, y0, x1, y1, width, gain in strokes:
-                if abs(px - (x0 + x1) / 2) > 14:
-                    continue
-                d = seg_dist(px, py, x0, y0, x1, y1)
-                s = max(s, gain * math.exp(-(d / width) ** 2))
-            v = base
-            put(im, x, y, (v, v, v * 0.99, 1))
+            v = gloss[y] * (0.7 + 0.3 * x / (W2 - 1))
+            put(im, x, y, (v, v, v, 1))
     save(im, "CastFill")
 
 
