@@ -251,6 +251,39 @@ local function StylePower(frame)
 	StyleHealth(frame)
 end
 
+-- Castbar icon: ElvUI's square border made invisible, our rim around it instead
+local function StyleCastIcon(castbar, on)
+	local icon = castbar.ButtonIcon
+	local holder = icon and icon.bg
+	if not holder or not holder.SetBackdropBorderColor then
+		return
+	end
+	-- ElvUI sets castbar.Icon only while the icon is shown
+	on = on and castbar.Icon ~= nil
+	local art = holder.forever
+	if on then
+		if not art then
+			art = {}
+			local front = CreateFrame("Frame", nil, holder)
+			front:SetAllPoints(holder)
+			front:SetFrameLevel(holder:GetFrameLevel() + 2)
+			art.rim = CreateSlice(front, "OVERLAY", "Rim")
+			holder.forever = art
+		end
+		art.on = true
+		holder:SetBackdropColor(0, 0, 0, 0)
+		holder:SetBackdropBorderColor(0, 0, 0, 0)
+		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		art.rim.rel = nil
+		PlaceSlice(art.rim, icon)
+		ShowSlice(art.rim, true)
+	elseif art and art.on then
+		art.on = false
+		ShowSlice(art.rim, false)
+		holder:SetTemplate(nil, nil, nil, UF.thinBorders, true)
+	end
+end
+
 local function StyleCastbar(frame)
 	local castbar = frame.Castbar
 	if not castbar then
@@ -258,8 +291,10 @@ local function StyleCastbar(frame)
 	end
 	if F:IsStyled(frame, true) then
 		ApplyBar(castbar, CAST_FILL)
+		StyleCastIcon(castbar, true)
 	else
 		RemoveBar(castbar)
+		StyleCastIcon(castbar, false)
 	end
 end
 
