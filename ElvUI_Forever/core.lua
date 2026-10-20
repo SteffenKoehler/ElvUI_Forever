@@ -284,6 +284,38 @@ local function StyleCastIcon(castbar, on)
 	end
 end
 
+-- Bright spark at the end of the fill (ElvUI's own spark texture, always on while
+-- styled, sized to the bar). Off again with ElvUI's spark option when unstyled.
+local function StyleCastSpark(frame, castbar, on)
+	local spark = castbar.Spark_
+	if not spark then
+		return
+	end
+	if on then
+		local h = castbar:GetHeight()
+		if not h or h <= 0 then
+			h = frame.db and frame.db.castbar and frame.db.castbar.height or 18
+		end
+		castbar.Spark = spark
+		castbar.foreverSpark = true
+		spark:ClearAllPoints()
+		spark:SetPoint("CENTER", castbar:GetStatusBarTexture(), "RIGHT", 0, 0)
+		spark:SetWidth(math.max(10, h * 0.9))
+		spark:SetHeight(h * 2.2)
+		spark:SetAlpha(1)
+	elseif castbar.foreverSpark then
+		castbar.foreverSpark = nil
+		local db = frame.db and frame.db.castbar
+		if not (db and db.spark) then
+			spark:Hide()
+			castbar.Spark = nil
+		else
+			spark:SetWidth(20)
+			spark:SetHeight(db.height * 2)
+		end
+	end
+end
+
 local function StyleCastbar(frame)
 	local castbar = frame.Castbar
 	if not castbar then
@@ -292,9 +324,11 @@ local function StyleCastbar(frame)
 	if F:IsStyled(frame, true) then
 		ApplyBar(castbar, CAST_FILL)
 		StyleCastIcon(castbar, true)
+		StyleCastSpark(frame, castbar, true)
 	else
 		RemoveBar(castbar)
 		StyleCastIcon(castbar, false)
+		StyleCastSpark(frame, castbar, false)
 	end
 end
 

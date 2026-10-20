@@ -7,7 +7,8 @@ Bar.tga     dark background with a 1.5 px light gray rim, rounded corners (radiu
 Rim.tga     the same rim and outline without the background, drawn above the fill:
             it covers the fill's square corners, so the fill looks rounded at any size
 UnitFill    left-to-right gradient 53 % -> 100 %, tinted by the bar color
-CastFill    castbar: the gradient of UnitFill with faint brush strokes, 512 wide so the
+CastFill    castbar: glossy fill (bright band at the top, darker towards the bottom,
+            70 -> 100 % left to right) with faint brush strokes, 512 wide so the
             strokes stay crisp on long player castbars"""
 import math
 import random
@@ -120,11 +121,13 @@ def cast_fill():
         t = clamp(((px - x0) * vx + (py - y0) * vy) / (vx * vx + vy * vy))
         return math.hypot(px - x0 - t * vx, py - y0 - t * vy)
 
+    # vertical gloss profile: thin highlight just below the top edge, then a soft fall-off
+    gloss = [0.82, 1.0, 1.0, 0.9, 0.82, 0.78, 0.76, 0.75, 0.74, 0.73, 0.72, 0.71, 0.7, 0.68, 0.65, 0.6]
     im = Image.new("RGBA", (W2, H2))
     for y in range(H2):
         t = y / (H2 - 1)
         for x in range(W2):
-            base = 0.6 + 0.4 * x / (W2 - 1)
+            base = gloss[y] * (0.7 + 0.3 * x / (W2 - 1))
             px, py = x + 0.5, y + 0.5
             s = 0.0
             for x0, y0, x1, y1, width, gain in strokes:
