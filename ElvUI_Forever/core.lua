@@ -320,6 +320,9 @@ local function StyleCastIcon(castbar, on)
 	StyleIcon(icon and icon.bg, icon, on and castbar.Icon ~= nil)
 end
 
+local AURA_EXTRA_SPACING = 4
+local AURA_EXTRA_GAP = 3
+
 -- Aura bars (ElvUI's buff/debuff bars above player/target): the bar frame's square
 -- template made invisible, the status bar inside gets our background, rim and fill
 local function StyleAuraBar(barFrame, on)
@@ -354,6 +357,17 @@ local function StyleAuraBars(frame)
 		end)
 	end
 	local on = F:IsStyled(frame, "aurabars")
+	-- room between the bars and between icon and bar, so the rims don't merge.
+	-- ElvUI sets spacing on every configure, gap only once at construction.
+	if element.foreverBaseGap == nil then
+		element.foreverBaseGap = element.gap or 0
+	end
+	if on then
+		element.spacing = (element.spacing or 0) + AURA_EXTRA_SPACING
+		element.gap = element.foreverBaseGap + AURA_EXTRA_GAP
+	else
+		element.gap = element.foreverBaseGap
+	end
 	if element.bars then
 		for i = 1, #element.bars do
 			StyleAuraBar(element.bars[i], on)
