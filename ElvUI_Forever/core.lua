@@ -22,6 +22,7 @@ local OUTSETS = {3, 5, 3, 5}
 P["Forever"] = {
 	enable = true,
 	castbar = true,
+	aurabars = true,
 	units = {
 		player = true,
 		target = true,
@@ -201,12 +202,13 @@ local function RemoveBar(bar)
 	end
 end
 
-function F:IsStyled(frame, isCastbar)
+-- part: nil (health/power), "castbar" or "aurabars"
+function F:IsStyled(frame, part)
 	local db = E.db.Forever
 	if not (db and db.enable) then
 		return false
 	end
-	if isCastbar and not db.castbar then
+	if part and not db[part] then
 		return false
 	end
 	local key = frame and UNIT_KEY[frame.unitframeType]
@@ -251,15 +253,11 @@ local function StylePower(frame)
 	StyleHealth(frame)
 end
 
--- Castbar icon: ElvUI's square border made invisible, our rim around it instead
-local function StyleCastIcon(castbar, on)
-	local icon = castbar.ButtonIcon
-	local holder = icon and icon.bg
-	if not holder or not holder.SetBackdropBorderColor then
+-- Icon (castbar, aura bar): ElvUI's square border made invisible, our rim around it
+local function StyleIcon(holder, icon, on)
+	if not holder or not icon or not holder.SetBackdropBorderColor then
 		return
 	end
-	-- ElvUI sets castbar.Icon only while the icon is shown
-	on = on and castbar.Icon ~= nil
 	local art = holder.forever
 	if on then
 		if not art then
@@ -316,12 +314,59 @@ local function StyleCastSpark(frame, castbar, on)
 	end
 end
 
+local function StyleCastIcon(castbar, on)
+	local icon = castbar.ButtonIcon
+	-- ElvUI sets castbar.Icon only while the icon is shown
+	StyleIcon(icon and icon.bg, icon, on and castbar.Icon ~= nil)
+end
+
+-- Aura bars (ElvUI's buff/debuff bars above player/target): the bar frame's square
+-- template made invisible, the status bar inside gets our background, rim and fill
+local function StyleAuraBar(barFrame, on)
+	local sb = barFrame and barFrame.statusBar
+	if not sb then
+		return
+	end
+	if on then
+		barFrame:SetBackdropColor(0, 0, 0, 0)
+		barFrame:SetBackdropBorderColor(0, 0, 0, 0)
+		ApplyBar(sb, FILL)
+		StyleIcon(sb.iconHolder, sb.icon, true)
+		barFrame.foreverStyled = true
+	elseif barFrame.foreverStyled then
+		barFrame.foreverStyled = nil
+		RemoveBar(sb)
+		StyleIcon(sb.iconHolder, sb.icon, false)
+		barFrame:SetTemplate(nil, nil, nil, UF.thinBorders, true)
+	end
+end
+
+local function StyleAuraBars(frame)
+	local element = frame.AuraBars
+	if not element then
+		return
+	end
+	if not element.foreverHooked then
+		element.foreverHooked = true
+		-- bars are created on demand: style each new one (oUF calls PostCreateBar(barFrame))
+		hooksecurefunc(element, "PostCreateBar", function(barFrame)
+			StyleAuraBar(barFrame, F:IsStyled(frame, "aurabars"))
+		end)
+	end
+	local on = F:IsStyled(frame, "aurabars")
+	if element.bars then
+		for i = 1, #element.bars do
+			StyleAuraBar(element.bars[i], on)
+		end
+	end
+end
+
 local function StyleCastbar(frame)
 	local castbar = frame.Castbar
 	if not castbar then
 		return
 	end
-	if F:IsStyled(frame, true) then
+	if F:IsStyled(frame, "castbar") then
 		ApplyBar(castbar, CAST_FILL)
 		StyleCastIcon(castbar, true)
 		StyleCastSpark(frame, castbar, true)
@@ -382,6 +427,17 @@ function F:InsertOptions()
 				end,
 				disabled = function() return not E.db.Forever.enable end,
 			},
+			aurabars = {
+				order = 4.5,
+				type = "toggle",
+				name = T("Aura Bars", "Aura Bars"),
+				get = function() return E.db.Forever.aurabars end,
+				set = function(_, value)
+					E.db.Forever.aurabars = value
+					F:UpdateAll()
+				end,
+				disabled = function() return not E.db.Forever.enable end,
+			},
 			units = {
 				order = 5,
 				type = "group",
@@ -413,6 +469,9 @@ function F:Initialize()
 	end)
 	hooksecurefunc(UF, "Configure_Castbar", function(_, frame)
 		StyleCastbar(frame)
+	end)
+	hooksecurefunc(UF, "Configure_AuraBars", function(_, frame)
+		StyleAuraBars(frame)
 	end)
 	-- ElvUI sets the statusbar texture of every bar from its option: ours again on top
 	hooksecurefunc(UF, "Update_StatusBars", function()
