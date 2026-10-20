@@ -101,51 +101,53 @@ local function ShowSlice(slice, shown)
 	end
 end
 
--- Background (below the fill) and rim (above it: covers the fill's square corners)
+-- Background (below the fill) and rim (above it: covers the fill's square corners).
+-- Both hang on art.box, which spans the bar alone or health + power together (one frame
+-- around both, rounded only at the top of the health and the bottom of the power bar).
 local function EnsureArt(bar)
 	local art = bar.forever
 	if art then
 		return art
 	end
 	art = {}
+	local box = CreateFrame("Frame", nil, bar)
+	art.box = box
 	local back = CreateFrame("Frame", nil, bar)
-	back:SetFrameLevel(math.max(0, bar:GetFrameLevel() - 1))
-	back:SetAllPoints(bar)
+	back:SetAllPoints(box)
 	art.back = back
 	art.bg = CreateSlice(back, "BACKGROUND", "Bar")
 	local front = CreateFrame("Frame", nil, bar)
-	front:SetFrameLevel(bar:GetFrameLevel() + 1)
-	front:SetAllPoints(bar)
+	front:SetAllPoints(box)
 	art.front = front
 	art.rim = CreateSlice(front, "OVERLAY", "Rim")
-	-- keep up with size changes (e.g. after changing the frame height in the options)
-	bar:HookScript("OnSizeChanged", function(self)
-		if self.forever and self.forever.on then
-			self.forever.bg.rel, self.forever.rim.rel = nil, nil
-			PlaceSlice(self.forever.bg, self)
-			PlaceSlice(self.forever.rim, self)
+	-- keep up with size changes (frame height in the options, power bar shown/hidden)
+	box:SetScript("OnSizeChanged", function(self)
+		if art.on then
+			art.bg.rel, art.rim.rel = nil, nil
+			PlaceSlice(art.bg, self)
+			PlaceSlice(art.rim, self)
 		end
 	end)
 	bar.forever = art
 	return art
 end
 
-local function ApplyBar(bar, fill)
-	local art = EnsureArt(bar)
-	art.on = true
-	art.back:SetFrameLevel(math.max(0, bar:GetFrameLevel() - 1))
-	art.front:SetFrameLevel(bar:GetFrameLevel() + 1)
-	PlaceSlice(art.bg, bar)
-	PlaceSlice(art.rim, bar)
-	ShowSlice(art.bg, true)
-	ShowSlice(art.rim, true)
-	-- ElvUI's square border and its colored background give way to ours
+-- ElvUI's square border and colored background give way to ours (power bars call
+-- their background BG)
+local function HideElvBackground(bar, hidden)
+	local a = hidden and 0 or 1
 	if bar.backdrop then
-		bar.backdrop:SetAlpha(0)
+		bar.backdrop:SetAlpha(a)
 	end
 	if bar.bg then
-		bar.bg:SetAlpha(0)
+		bar.bg:SetAlpha(a)
 	end
+	if bar.BG then
+		bar.BG:SetAlpha(a)
+	end
+end
+
+local function SetFill(bar, fill)
 	bar:SetStatusBarTexture(fill)
 	if bar.texture then
 		bar.texture = fill -- oUF power element keeps its own copy
@@ -153,22 +155,50 @@ local function ApplyBar(bar, fill)
 	Styled[bar] = fill
 end
 
+local function ShowArt(art, shown)
+	ShowSlice(art.bg, shown)
+	ShowSlice(art.rim, shown)
+end
+
+-- spanTo: the frame spans down to the bottom of this bar (health + power); backLevel:
+-- the background lies below both bars
+local function ApplyBar(bar, fill, spanTo, backLevel)
+	local art = EnsureArt(bar)
+	art.on = true
+	local box = art.box
+	box:ClearAllPoints()
+	box:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+	box:SetPoint("BOTTOMRIGHT", spanTo or bar, "BOTTOMRIGHT", 0, 0)
+	art.back:SetFrameLevel(math.max(0, backLevel or (bar:GetFrameLevel() - 1)))
+	art.front:SetFrameLevel(bar:GetFrameLevel() + 1)
+	art.bg.rel, art.rim.rel = nil, nil
+	PlaceSlice(art.bg, box)
+	PlaceSlice(art.rim, box)
+	ShowArt(art, true)
+	HideElvBackground(bar, true)
+	SetFill(bar, fill)
+end
+
+-- Bar inside another bar's frame (power below the health): fill only, no own art
+local function ApplyFillOnly(bar, fill)
+	if bar.forever and bar.forever.on then
+		bar.forever.on = false
+		ShowArt(bar.forever, false)
+	end
+	HideElvBackground(bar, true)
+	SetFill(bar, fill)
+end
+
 local function RemoveBar(bar)
-	local art = bar.forever
-	if not art or not art.on then
-		return
+	if bar.forever and bar.forever.on then
+		bar.forever.on = false
+		ShowArt(bar.forever, false)
 	end
-	art.on = false
-	ShowSlice(art.bg, false)
-	ShowSlice(art.rim, false)
-	if bar.backdrop then
-		bar.backdrop:SetAlpha(1)
+	if Styled[bar] then
+		HideElvBackground(bar, false)
+		Styled[bar] = nil
+		-- ElvUI's own texture comes back with the next UF:Update_StatusBars
 	end
-	if bar.bg then
-		bar.bg:SetAlpha(1)
-	end
-	Styled[bar] = nil
-	-- ElvUI's own texture comes back with the next UF:Update_StatusBars
 end
 
 function F:IsStyled(frame, isCastbar)
@@ -183,14 +213,53 @@ function F:IsStyled(frame, isCastbar)
 	return key and db.units[key] or false
 end
 
-local function StyleBar(frame, bar, fill, isCastbar)
-	if not bar then
+-- Power bar directly below the health bar (not detached, offset, inset or mini)
+local function PowerAttached(frame)
+	return frame.USE_POWERBAR and frame.Power and not frame.POWERBAR_DETACHED and not frame.USE_POWERBAR_OFFSET
+		and not frame.USE_INSET_POWERBAR and not frame.USE_MINI_POWERBAR
+end
+
+local function StyleHealth(frame)
+	local health = frame.Health
+	if not health then
 		return
 	end
-	if F:IsStyled(frame, isCastbar) then
-		ApplyBar(bar, fill)
+	if not F:IsStyled(frame) then
+		RemoveBar(health)
+		return
+	end
+	if PowerAttached(frame) then
+		ApplyBar(health, FILL, frame.Power, frame.Power:GetFrameLevel() - 1)
 	else
-		RemoveBar(bar)
+		ApplyBar(health, FILL)
+	end
+end
+
+local function StylePower(frame)
+	local power = frame.Power
+	if not power then
+		return
+	end
+	if not (F:IsStyled(frame) and frame.USE_POWERBAR) then
+		RemoveBar(power)
+	elseif PowerAttached(frame) then
+		ApplyFillOnly(power, FILL)
+	else
+		ApplyBar(power, FILL)
+	end
+	-- the health frame spans the power bar only while it is attached
+	StyleHealth(frame)
+end
+
+local function StyleCastbar(frame)
+	local castbar = frame.Castbar
+	if not castbar then
+		return
+	end
+	if F:IsStyled(frame, true) then
+		ApplyBar(castbar, CAST_FILL)
+	else
+		RemoveBar(castbar)
 	end
 end
 
@@ -268,13 +337,13 @@ end
 
 function F:Initialize()
 	hooksecurefunc(UF, "Configure_HealthBar", function(_, frame)
-		StyleBar(frame, frame.Health, FILL)
+		StyleHealth(frame)
 	end)
 	hooksecurefunc(UF, "Configure_Power", function(_, frame)
-		StyleBar(frame, frame.Power, FILL)
+		StylePower(frame)
 	end)
 	hooksecurefunc(UF, "Configure_Castbar", function(_, frame)
-		StyleBar(frame, frame.Castbar, CAST_FILL, true)
+		StyleCastbar(frame)
 	end)
 	-- ElvUI sets the statusbar texture of every bar from its option: ours again on top
 	hooksecurefunc(UF, "Update_StatusBars", function()
