@@ -314,10 +314,26 @@ local function StyleCastSpark(frame, castbar, on)
 	end
 end
 
-local function StyleCastIcon(castbar, on)
+local CAST_ICON_EXTRA_GAP = 3
+
+local function StyleCastIcon(frame, castbar, on)
 	local icon = castbar.ButtonIcon
 	-- ElvUI sets castbar.Icon only while the icon is shown
-	StyleIcon(icon and icon.bg, icon, on and castbar.Icon ~= nil)
+	on = on and castbar.Icon ~= nil
+	StyleIcon(icon and icon.bg, icon, on)
+	-- Attached icon: a few px more room so its rim doesn't touch the castbar's rim. ElvUI
+	-- sets width and icon anchor on every configure, so this never accumulates.
+	local db = frame.db and frame.db.castbar
+	if on and db and db.iconAttached and not (db.insideInfoPanel and frame.USE_INFO_PANEL) then
+		castbar:SetWidth(castbar:GetWidth() - CAST_ICON_EXTRA_GAP)
+		local holder = icon.bg
+		holder:ClearAllPoints()
+		if frame.ORIENTATION == "RIGHT" then
+			holder:SetPoint("LEFT", castbar, "RIGHT", frame.SPACING * 3 + CAST_ICON_EXTRA_GAP, 0)
+		else
+			holder:SetPoint("RIGHT", castbar, "LEFT", -frame.SPACING * 3 - CAST_ICON_EXTRA_GAP, 0)
+		end
+	end
 end
 
 local AURA_EXTRA_SPACING = 4
@@ -382,11 +398,11 @@ local function StyleCastbar(frame)
 	end
 	if F:IsStyled(frame, "castbar") then
 		ApplyBar(castbar, CAST_FILL)
-		StyleCastIcon(castbar, true)
+		StyleCastIcon(frame, castbar, true)
 		StyleCastSpark(frame, castbar, true)
 	else
 		RemoveBar(castbar)
-		StyleCastIcon(castbar, false)
+		StyleCastIcon(frame, castbar, false)
 		StyleCastSpark(frame, castbar, false)
 	end
 end

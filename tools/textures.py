@@ -2,8 +2,10 @@
 nameplates of the TidyPlates_WoTLK fork). Needs Pillow.
 Usage: python tools/textures.py [outdir]   (default ElvUI_Forever/media)
 
-Bar.tga     dark background with a 1.5 px light gray rim, rounded corners (radius 4)
-            and a thin dark outline; region 88,0 - 220,18, nine-slice margins 6/9/6/8
+Bar.tga     dark, nearly opaque background (unit frames sit on the game world; the
+            nameplates' 60-80 % let the ground show through on large castbars) with a
+            1.5 px light gray rim, rounded corners (radius 4) and a thin dark outline;
+            region 88,0 - 220,18, nine-slice margins 6/9/6/8
 Rim.tga     the same rim and outline without the background, drawn above the fill:
             it covers the fill's square corners, so the fill looks rounded at any size
 UnitFill    left-to-right gradient 53 % -> 100 %, tinted by the bar color
@@ -82,7 +84,7 @@ def frame_texture(with_background):
                 c = over(c, (0, 0, 0, 0.55 * edge))
             if inside and with_background:
                 t = clamp((py - 3.5) / 9.0)
-                base = 0.6 + 0.2 * (2 * t - 1) ** 2
+                base = 0.88 + 0.08 * (2 * t - 1) ** 2
                 dd = max(0.0, -d - 1.5)
                 a = base + (1 - base) * 0.78 * 0.5 ** dd
                 c = over(c, (0.01, 0.01, 0.01, a * inside))
