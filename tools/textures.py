@@ -8,8 +8,7 @@ Rim.tga     the same rim and outline without the background, drawn above the fil
             it covers the fill's square corners, so the fill looks rounded at any size
 UnitFill    left-to-right gradient 53 % -> 100 %, tinted by the bar color
 CastFill    castbar: glossy fill (bright band at the top, darker towards the bottom,
-            70 -> 100 % left to right) with faint brush strokes, 512 wide so the
-            strokes stay crisp on long player castbars"""
+            70 -> 100 % left to right), plain without brush strokes"""
 import math
 import random
 import sys
@@ -135,7 +134,7 @@ def cast_fill():
                     continue
                 d = seg_dist(px, py, x0, y0, x1, y1)
                 s = max(s, gain * math.exp(-(d / width) ** 2))
-            v = min(1.0, base + 0.6 * s * clamp((t - 0.15) / 0.3))
+            v = base
             put(im, x, y, (v, v, v * 0.99, 1))
     save(im, "CastFill")
 
