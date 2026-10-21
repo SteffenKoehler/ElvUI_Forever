@@ -25,6 +25,7 @@ P["Forever"] = {
 	enable = true,
 	castbar = true,
 	aurabars = true,
+	classbar = true,
 	font = true,
 	units = {
 		player = true,
@@ -410,6 +411,76 @@ local function StyleCastbar(frame)
 	end
 end
 
+-- Death knight runes: every rune its own Forever bar, with room between them for the rims
+local RUNE_GAP = 6 -- px between two runes (each rim lies 1.5 px outside its bar)
+local RUNE_LIFT = 3 -- the rune rims would otherwise touch the health rim below
+local function StyleRunes(frame)
+	local bars = frame.Runes
+	if not (bars and frame.ClassBar == "Runes") then
+		return
+	end
+	local on = F:IsStyled(frame, "classbar") and frame.USE_CLASSBAR
+	if bars.backdrop then
+		bars.backdrop:SetAlpha(on and 0 or 1)
+	end
+	local n = frame.MAX_CLASS_BAR or #bars
+	local vertical = frame.CLASSBAR_DETACHED and frame.db.classbar.orientation == "VERTICAL"
+	if on and not frame.USE_MINI_CLASSBAR and not vertical and n > 1 then
+		-- ElvUI puts the runes edge to edge (1 px divider): spread them out
+		local w = (bars:GetWidth() - RUNE_GAP * (n - 1)) / n
+		for i = 1, n do
+			local rune = bars[i]
+			rune:ClearAllPoints()
+			rune:SetWidth(w)
+			if i == 1 then
+				rune:SetPoint("LEFT", bars, "LEFT", 0, 0)
+			else
+				rune:SetPoint("LEFT", bars[i - 1], "RIGHT", RUNE_GAP, 0)
+			end
+		end
+	end
+	if on and not frame.CLASSBAR_DETACHED and not frame.USE_MINI_CLASSBAR then
+		local point, rel, relPoint, x, y = bars:GetPoint(1)
+		if point then
+			bars:ClearAllPoints()
+			bars:SetPoint(point, rel, relPoint, x, y + RUNE_LIFT)
+		end
+	end
+	for i = 1, #bars do
+		if on and i <= n then
+			ApplyBar(bars[i], FILL)
+		else
+			RemoveBar(bars[i])
+		end
+	end
+end
+
+-- A name at an edge or corner of the bar moves inwards, off the rim and the rounded corner
+local NAME_INSET_X, NAME_INSET_Y = 4, 2
+local function InsetName(frame)
+	local name = frame and frame.Name
+	if not (name and F:IsStyled(frame, "font")) then
+		return
+	end
+	local point, rel, relPoint, x, y = name:GetPoint(1)
+	if not point then
+		return
+	end
+	-- PostNamePosition sometimes leaves the name alone: do not move it twice
+	if name.foreverPoint == point and name.foreverRel == rel and name.foreverX == x and name.foreverY == y then
+		return
+	end
+	local dx = point:find("LEFT") and NAME_INSET_X or point:find("RIGHT") and -NAME_INSET_X or 0
+	local dy = point:find("TOP") and -NAME_INSET_Y or point:find("BOTTOM") and NAME_INSET_Y or 0
+	if dx == 0 and dy == 0 then
+		return
+	end
+	x, y = x + dx, y + dy
+	name:ClearAllPoints()
+	name:SetPoint(point, rel, relPoint, x, y)
+	name.foreverPoint, name.foreverRel, name.foreverX, name.foreverY = point, rel, x, y
+end
+
 -- Texts of a styled unit frame get the Forever font. Called after ElvUI has set its own
 -- font, so turning the option off restores ElvUI's font with the next font update.
 local function UnitFrameOf(obj)
@@ -489,6 +560,18 @@ function F:InsertOptions()
 				end,
 				disabled = function() return not E.db.Forever.enable end,
 			},
+			classbar = {
+				order = 4.55,
+				type = "toggle",
+				name = T("Classbar", "Classbar"),
+				desc = "Death knight runes as Forever bars.",
+				get = function() return E.db.Forever.classbar end,
+				set = function(_, value)
+					E.db.Forever.classbar = value
+					F:UpdateAll()
+				end,
+				disabled = function() return not E.db.Forever.enable end,
+			},
 			font = {
 				order = 4.6,
 				type = "toggle",
@@ -535,6 +618,15 @@ function F:Initialize()
 	end)
 	hooksecurefunc(UF, "Configure_AuraBars", function(_, frame)
 		StyleAuraBars(frame)
+	end)
+	hooksecurefunc(UF, "Configure_ClassBar", function(_, frame)
+		StyleRunes(frame)
+	end)
+	hooksecurefunc(UF, "UpdateNameSettings", function(_, frame)
+		InsetName(frame)
+	end)
+	hooksecurefunc(UF, "PostNamePosition", function(_, frame)
+		InsetName(frame)
 	end)
 	hooksecurefunc(UF, "Configure_FontString", function(_, obj)
 		StyleFont(obj)
