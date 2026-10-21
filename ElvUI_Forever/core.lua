@@ -25,6 +25,7 @@ P["Forever"] = {
 	enable = true,
 	castbar = true,
 	aurabars = true,
+	auraClassColor = true,
 	classbar = true,
 	font = true,
 	units = {
@@ -388,6 +389,12 @@ local function StyleAuraBars(frame)
 	else
 		element.gap = element.foreverBaseGap
 	end
+	-- Buffs in the own class color in every profile (in ElvUI a color per profile, grey by
+	-- default); debuffs keep their type colors
+	if on and E.db.Forever.auraClassColor then
+		local c = E.myclass == "PRIEST" and E.PriestColors or (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[E.myclass] or RAID_CLASS_COLORS[E.myclass])
+		element.buffColor = {c.r, c.g, c.b}
+	end
 	if element.bars then
 		for i = 1, #element.bars do
 			StyleAuraBar(element.bars[i], on)
@@ -559,6 +566,18 @@ function F:InsertOptions()
 					F:UpdateAll()
 				end,
 				disabled = function() return not E.db.Forever.enable end,
+			},
+			auraClassColor = {
+				order = 4.52,
+				type = "toggle",
+				name = T("Aura Bars: Class Color", "Aura Bars: Class Color"),
+				desc = "Buff aura bars in your class color in every ElvUI profile. Debuffs keep their colors.",
+				get = function() return E.db.Forever.auraClassColor end,
+				set = function(_, value)
+					E.db.Forever.auraClassColor = value
+					F:UpdateAll()
+				end,
+				disabled = function() return not (E.db.Forever.enable and E.db.Forever.aurabars) end,
 			},
 			classbar = {
 				order = 4.55,
