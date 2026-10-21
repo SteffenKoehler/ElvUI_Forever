@@ -431,31 +431,29 @@ local function StyleCastbar(frame)
 	end
 end
 
--- Death knight runes: every rune its own Forever bar, with room between them for the rims
-local RUNE_GAP = 6 -- px between two runes (each rim lies 1.5 px outside its bar)
-local RUNE_LIFT = 3 -- the rune rims would otherwise touch the health rim below
-local function StyleRunes(frame)
-	local bars = frame.Runes
-	if not (bars and frame.ClassBar == "Runes") then
-		return
-	end
-	local on = F:IsStyled(frame, "classbar") and frame.USE_CLASSBAR
+-- Death knight runes and combo points: every segment its own Forever bar, with room
+-- between them for the rims
+local SEGMENT_GAP = 6 -- px between two segments (each rim lies 1.5 px outside its bar)
+local SEGMENT_LIFT = 3 -- the segment rims would otherwise touch the health rim below
+-- keepEmpty: segments that are hidden while not built up (combo points) keep their
+-- background and rim as an empty slot: the art hangs on the container, not on the segment
+local function StyleSegments(frame, bars, db, on, keepEmpty)
 	if bars.backdrop then
 		bars.backdrop:SetAlpha(on and 0 or 1)
 	end
 	local n = frame.MAX_CLASS_BAR or #bars
-	local vertical = frame.CLASSBAR_DETACHED and frame.db.classbar.orientation == "VERTICAL"
+	local vertical = frame.CLASSBAR_DETACHED and db and db.orientation == "VERTICAL"
 	if on and not frame.USE_MINI_CLASSBAR and not vertical and n > 1 then
-		-- ElvUI puts the runes edge to edge (1 px divider): spread them out
-		local w = (bars:GetWidth() - RUNE_GAP * (n - 1)) / n
+		-- ElvUI puts the segments edge to edge (1 px divider): spread them out
+		local w = (bars:GetWidth() - SEGMENT_GAP * (n - 1)) / n
 		for i = 1, n do
-			local rune = bars[i]
-			rune:ClearAllPoints()
-			rune:SetWidth(w)
+			local seg = bars[i]
+			seg:ClearAllPoints()
+			seg:SetWidth(w)
 			if i == 1 then
-				rune:SetPoint("LEFT", bars, "LEFT", 0, 0)
+				seg:SetPoint("LEFT", bars, "LEFT", 0, 0)
 			else
-				rune:SetPoint("LEFT", bars[i - 1], "RIGHT", RUNE_GAP, 0)
+				seg:SetPoint("LEFT", bars[i - 1], "RIGHT", SEGMENT_GAP, 0)
 			end
 		end
 	end
@@ -463,15 +461,38 @@ local function StyleRunes(frame)
 		local point, rel, relPoint, x, y = bars:GetPoint(1)
 		if point then
 			bars:ClearAllPoints()
-			bars:SetPoint(point, rel, relPoint, x, y + RUNE_LIFT)
+			bars:SetPoint(point, rel, relPoint, x, y + SEGMENT_LIFT)
 		end
 	end
 	for i = 1, #bars do
+		local seg = bars[i]
 		if on and i <= n then
-			ApplyBar(bars[i], FILL)
+			ApplyBar(seg, FILL)
+			if keepEmpty then
+				local art = seg.forever
+				local level = seg:GetFrameLevel()
+				art.back:SetParent(bars)
+				art.front:SetParent(bars)
+				art.back:SetFrameLevel(math.max(0, level - 1))
+				art.front:SetFrameLevel(level + 1)
+			end
 		else
-			RemoveBar(bars[i])
+			RemoveBar(seg)
 		end
+	end
+end
+
+local function StyleRunes(frame)
+	local bars = frame.Runes
+	if bars and frame.ClassBar == "Runes" then
+		StyleSegments(frame, bars, frame.db.classbar, F:IsStyled(frame, "classbar") and frame.USE_CLASSBAR)
+	end
+end
+
+local function StyleComboPoints(frame)
+	local bars = frame.ComboPoints
+	if bars then
+		StyleSegments(frame, bars, frame.db.combobar, F:IsStyled(frame, "classbar") and frame.USE_CLASSBAR, true)
 	end
 end
 
@@ -596,7 +617,7 @@ function F:InsertOptions()
 				order = 4.55,
 				type = "toggle",
 				name = T("Classbar", "Classbar"),
-				desc = "Death knight runes as Forever bars.",
+				desc = "Death knight runes and combo points as Forever bars.",
 				get = function() return E.db.Forever.classbar end,
 				set = function(_, value)
 					E.db.Forever.classbar = value
@@ -654,6 +675,9 @@ function F:Initialize()
 	end)
 	hooksecurefunc(UF, "Configure_ClassBar", function(_, frame)
 		StyleRunes(frame)
+	end)
+	hooksecurefunc(UF, "Configure_ComboPoints", function(_, frame)
+		StyleComboPoints(frame)
 	end)
 	hooksecurefunc(UF, "UpdateNameSettings", function(_, frame)
 		InsetName(frame)
