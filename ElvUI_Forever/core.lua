@@ -12,6 +12,8 @@ F.Version = GetAddOnMetadata(addonName, "Version")
 local MEDIA = "Interface\\AddOns\\ElvUI_Forever\\media\\"
 local FILL = MEDIA .. "UnitFill"
 local CAST_FILL = MEDIA .. "CastFill"
+-- Same font as the Forever nameplates instead of ElvUI's pixel font
+local FONT, FONT_SIZE, FONT_OUTLINE = STANDARD_TEXT_FONT, 12, "OUTLINE"
 
 -- Bar.tga / Rim.tga: region 88,0 - 220,18 in 256 x 32, nine-slice margins left, right,
 -- top, bottom (tools/textures.py). Placed around a bar with OUTSETS (left, right, top,
@@ -23,6 +25,7 @@ P["Forever"] = {
 	enable = true,
 	castbar = true,
 	aurabars = true,
+	font = true,
 	units = {
 		player = true,
 		target = true,
@@ -407,6 +410,24 @@ local function StyleCastbar(frame)
 	end
 end
 
+-- Texts of a styled unit frame get the Forever font. Called after ElvUI has set its own
+-- font, so turning the option off restores ElvUI's font with the next font update.
+local function UnitFrameOf(obj)
+	local parent = obj:GetParent()
+	while parent do
+		if parent.unitframeType then
+			return parent
+		end
+		parent = parent:GetParent()
+	end
+end
+
+local function StyleFont(obj)
+	if F:IsStyled(UnitFrameOf(obj), "font") then
+		obj:FontTemplate(FONT, FONT_SIZE, FONT_OUTLINE)
+	end
+end
+
 function F:UpdateAll()
 	UF:Update_AllFrames()
 	UF:Update_StatusBars()
@@ -468,6 +489,18 @@ function F:InsertOptions()
 				end,
 				disabled = function() return not E.db.Forever.enable end,
 			},
+			font = {
+				order = 4.6,
+				type = "toggle",
+				name = T("Forever Font", "Forever Font"),
+				desc = "Friz Quadrata, size 12, outline - the font of the Forever nameplates instead of ElvUI's unit frame font.",
+				get = function() return E.db.Forever.font end,
+				set = function(_, value)
+					E.db.Forever.font = value
+					F:UpdateAll()
+				end,
+				disabled = function() return not E.db.Forever.enable end,
+			},
 			units = {
 				order = 5,
 				type = "group",
@@ -502,6 +535,17 @@ function F:Initialize()
 	end)
 	hooksecurefunc(UF, "Configure_AuraBars", function(_, frame)
 		StyleAuraBars(frame)
+	end)
+	hooksecurefunc(UF, "Configure_FontString", function(_, obj)
+		StyleFont(obj)
+	end)
+	hooksecurefunc(UF, "Update_FontString", function(_, obj)
+		StyleFont(obj)
+	end)
+	hooksecurefunc(UF, "Update_FontStrings", function()
+		for obj in pairs(UF.fontstrings) do
+			StyleFont(obj)
+		end
 	end)
 	-- ElvUI sets the statusbar texture of every bar from its option: ours again on top
 	hooksecurefunc(UF, "Update_StatusBars", function()
