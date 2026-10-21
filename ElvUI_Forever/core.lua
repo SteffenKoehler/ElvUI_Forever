@@ -35,6 +35,7 @@ P["Forever"] = {
 		focus = true,
 		focustarget = true,
 		pet = true,
+		pettarget = true,
 		party = true,
 	},
 }
@@ -47,6 +48,7 @@ local UNIT_KEY = {
 	focus = "focus",
 	focustarget = "focustarget",
 	pet = "pet",
+	pettarget = "pettarget",
 	party = "party",
 	partypet = "party",
 	partytarget = "party",
@@ -397,8 +399,19 @@ local function StyleAuraBars(frame)
 	end
 	if element.bars then
 		for i = 1, #element.bars do
-			StyleAuraBar(element.bars[i], on)
+			local bar = element.bars[i]
+			StyleAuraBar(bar, on)
+			-- the icon keeps the gap it was created with
+			local holder = bar.statusBar and bar.statusBar.iconHolder
+			if holder then
+				holder:ClearAllPoints()
+				holder:SetPoint("BOTTOMRIGHT", bar, "BOTTOMLEFT", -element.gap, 0)
+			end
 		end
+	end
+	-- ElvUI has already anchored the existing bars with its own spacing: again with ours
+	if element.SetAnchors then
+		element:SetAnchors()
 	end
 end
 
@@ -618,6 +631,7 @@ function F:InsertOptions()
 					focus = {order = 4, type = "toggle", name = T("Focus", "Focus")},
 					focustarget = {order = 5, type = "toggle", name = T("FocusTarget", "Focus Target")},
 					pet = {order = 6, type = "toggle", name = T("Pet", "Pet")},
+					pettarget = {order = 6.5, type = "toggle", name = T("PetTarget", "Pet Target")},
 					party = {order = 7, type = "toggle", name = T("Party", "Party")},
 				},
 			},
