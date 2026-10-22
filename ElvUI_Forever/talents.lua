@@ -366,8 +366,9 @@ end
 local GLYPH_ATLAS = "Interface\\Spellbook\\UI-GlyphFrame"
 local GLYPH_LOCK = "Interface\\LFGFrame\\UI-LFG-ICON-LOCK"
 -- Atlas pixel rectangles: left, top, right, bottom
-local GLYPH_PARCHMENT = {10, 72, 350, 436}
-local GLYPH_CENTER = {180, 238} -- center of the circle on the parchment
+-- Inner parchment (the crop ElvUI's glyph skin uses), framed by an ElvUI border
+local GLYPH_PARCHMENT = {21, 72, 336, 412}
+local GLYPH_CENTER = {179, 237} -- center of the circle (fitted to its rings)
 local GLYPH_SPRITE = {
 	ringMinor = {404, 18, 465, 79},
 	ringMajor = {394, 166, 474, 247},
@@ -376,10 +377,9 @@ local GLYPH_SPRITE = {
 	orbMajor = {2, 448, 64, 510},
 	orbMinor = {69, 448, 131, 510},
 }
--- Socket centers relative to the circle center (atlas pixels, y up); 1, 4, 6 are major
-local GLYPH_POS = {{0, 124}, {0, -124}, {-104, 59}, {105, -59}, {105, 59}, {-106, -59}}
--- Where the glyph name goes
-local GLYPH_LABEL = {"RIGHT", "RIGHT", "LEFT", "RIGHT", "RIGHT", "LEFT"}
+-- Socket centers relative to the circle center (atlas pixels, y up): the six circles
+-- printed on the parchment, a regular hexagon of radius 110; 1, 4, 6 are major
+local GLYPH_POS = {{0, 110}, {0, -110}, {-95, 55}, {95, -55}, {95, 55}, {-95, -55}}
 -- Ring, orb and rune size in atlas pixels
 local GLYPH_SIZE = {
 	major = {ring = 86, orb = 62, rune = 56},
@@ -398,6 +398,10 @@ local function GlyphOnEnter(self)
 	self.hover:Show()
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:SetGlyph(self.socket, viewGroup)
+	local _, _, spell = GetGlyphSocketInfo(self.socket, viewGroup)
+	if spell and viewGroup == GetActiveTalentGroup(false, false) then
+		GameTooltip:AddLine("Shift-Rechtsklick: Glyphe entfernen", 0.6, 0.6, 0.6)
+	end
 	GameTooltip:Show()
 end
 
@@ -462,11 +466,14 @@ local function CreateGlyphView(height)
 	view:SetTemplate("Default")
 
 	local p = GLYPH_PARCHMENT
-	local s = (view:GetHeight() - 8) / (p[4] - p[2])
-	local art = view:CreateTexture(nil, "BORDER") -- above the ElvUI backdrop
+	local s = (view:GetHeight() - 16) / (p[4] - p[2])
+	local page = CreateFrame("Frame", nil, view)
+	page:SetSize((p[3] - p[1]) * s, (p[4] - p[2]) * s)
+	page:SetPoint("CENTER", view, "CENTER", 0, 0)
+	page:SetTemplate("Default")
+	local art = page:CreateTexture(nil, "BORDER") -- above the ElvUI backdrop
 	SetSprite(art, p)
-	art:Size((p[3] - p[1]) * s, (p[4] - p[2]) * s)
-	art:Point("CENTER", view, "CENTER", 0, 0)
+	art:SetInside(page)
 	view.art = art
 
 	-- Circle center relative to the art's center
@@ -476,7 +483,7 @@ local function CreateGlyphView(height)
 	view.sockets = {}
 	for i = 1, 6 do
 		local b = CreateFrame("Button", nil, view)
-		b:SetFrameLevel(view:GetFrameLevel() + 3)
+		b:SetFrameLevel(page:GetFrameLevel() + 3)
 		b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 		b:SetPoint("CENTER", art, "CENTER", cx + GLYPH_POS[i][1] * s, cy + GLYPH_POS[i][2] * s)
 		b.scale = s
@@ -502,22 +509,6 @@ local function CreateGlyphView(height)
 		b.hover:SetPoint("CENTER")
 		b.hover:Hide()
 
-		b.label = b:CreateFontString(nil, "OVERLAY")
-		b.label:FontTemplate(nil, 12, "OUTLINE")
-		b.label:SetWidth(130)
-		local side = GLYPH_LABEL[i]
-		if side == "TOP" then
-			b.label:SetPoint("BOTTOM", b, "TOP", 0, 2)
-		elseif side == "BOTTOM" then
-			b.label:SetPoint("TOP", b, "BOTTOM", 0, -2)
-		elseif side == "LEFT" then
-			b.label:SetPoint("RIGHT", b, "LEFT", -4, 0)
-			b.label:SetJustifyH("RIGHT")
-		else
-			b.label:SetPoint("LEFT", b, "RIGHT", 4, 0)
-			b.label:SetJustifyH("LEFT")
-		end
-
 		b.socket = i
 		b:SetScript("OnEnter", GlyphOnEnter)
 		b:SetScript("OnLeave", GlyphOnLeave)
@@ -525,11 +516,6 @@ local function CreateGlyphView(height)
 		view.sockets[i] = b
 	end
 
-	view.hint = view:CreateFontString(nil, "OVERLAY")
-	view.hint:FontTemplate(nil, 11, "OUTLINE")
-	view.hint:Point("BOTTOMRIGHT", view, "BOTTOMRIGHT", -8, 8)
-	view.hint:SetTextColor(0.7, 0.7, 0.7)
-	view.hint:SetText("Shift-Rechtsklick: Glyphe entfernen")
 	return view
 end
 
@@ -556,7 +542,6 @@ local function UpdateGlyphView()
 			b.ring:SetDesaturated(true)
 			b.rune:Hide()
 			b.lock:Show()
-			b.label:SetText("")
 		else
 			SetSprite(b.orb, minor and GLYPH_SPRITE.orbMinor or GLYPH_SPRITE.orbMajor)
 			b.orb:SetDesaturated(not active)
@@ -568,14 +553,11 @@ local function UpdateGlyphView()
 				b.rune:SetVertexColor(unpack(minor and RUNE_MINOR or RUNE_MAJOR))
 				b.rune:SetDesaturated(not active)
 				b.rune:Show()
-				b.label:SetText(GetSpellInfo(spell))
-				b.label:SetTextColor(unpack(minor and COLOR_WHITE or COLOR_MAX))
 			else
 				-- Free socket: dim orb
 				b.orb:SetAlpha(0.45)
 				b.rune:Hide()
-				b.label:SetText("")
-			end
+				end
 		end
 		SetShown(b.glow, enabled and active and GlyphMatchesSocket(i))
 	end
