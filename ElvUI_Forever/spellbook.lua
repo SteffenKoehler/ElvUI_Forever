@@ -272,7 +272,10 @@ local function UnlearnedInfo(e)
 	if e.reqs then
 		local known = KnownRanks()
 		for _, req in ipairs(e.reqs) do
-			if not known[req] then
+			-- "Sternenfeuer (Rang 1)": the previous rank, met when that rank is known
+			local name, rank = req:match("^(.-)%s*%((.-)%)$")
+			name = name or req
+			if not known[name] or known[name] < RankNumber(rank) then
 				return "Benötigt: " .. req, COLOR_REQ
 			end
 		end
