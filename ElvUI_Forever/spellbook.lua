@@ -297,6 +297,11 @@ local function BuildEntries(tab)
 		return a.name < b.name
 	end)
 	for _, e in ipairs(unlearned) do
+		-- Unknown spell whose trainer ranks start above 1: rank 1 is a talent
+		-- (e.g. Sternenregen), the trainer only teaches the later ranks
+		if not known[e.name] and RankNumber(e.rank) > 1 then
+			e = setmetatable({rank = e.rank:gsub("%d+", "1", 1), talent = true}, {__index = e})
+		end
 		tinsert(list, {name = e.name, rank = e.rank, icon = e.icon, learned = false, data = e})
 	end
 	return list
@@ -304,6 +309,9 @@ end
 
 -- Second line of an unlearned entry
 local function UnlearnedInfo(e)
+	if e.talent then
+		return TALENT or "Talent", COLOR_REQ
+	end
 	local level = UnitLevel("player")
 	local cost = MoneyText(e.cost)
 	if e.level > level then
