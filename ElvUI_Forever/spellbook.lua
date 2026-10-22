@@ -69,6 +69,17 @@ local function DB()
 end
 
 local TRAINER_FILTERS = {"available", "unavailable", "used"}
+
+-- Hidden tooltip: the trainer gives no spell ID, its tooltip may (for chat links)
+local scanTip = CreateFrame("GameTooltip", "ForeverSpellbookScanTip", nil, "GameTooltipTemplate")
+scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+
+local function TrainerSpellID(index)
+	scanTip:ClearLines()
+	scanTip:SetTrainerService(index)
+	local _, _, id = scanTip:GetSpell()
+	return id
+end
 local scanning
 
 local function ScanTrainer()
@@ -126,6 +137,7 @@ local function ScanTrainer()
 				icon = GetTrainerServiceIcon(i),
 				line = line or "?",
 				desc = GetTrainerServiceDescription(i),
+				id = TrainerSpellID(i),
 				reqs = reqs,
 			})
 		end
@@ -471,7 +483,16 @@ end
 
 local function EntryOnClick(self, button)
 	local entry = self.entry
-	if not entry or not entry.learned then
+	if not entry then
+		return
+	end
+	if not entry.learned then
+		-- Link when the trainer scan got the spell ID, otherwise the name as text
+		if IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow() then
+			local e = entry.data
+			local link = e.id and GetSpellLink(e.id)
+			ChatEdit_InsertLink(link or ("[" .. e.name .. (e.rank and (" (" .. e.rank .. ")") or "") .. "]"))
+		end
 		return
 	end
 	if IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow() then
