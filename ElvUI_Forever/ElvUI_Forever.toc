@@ -7,3 +7,4 @@
 ## DefaultState: enabled
 
 core.lua
+talents.lua
