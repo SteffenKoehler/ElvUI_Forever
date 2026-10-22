@@ -5,6 +5,8 @@
 ## Version: 1.0.0
 ## RequiredDeps: ElvUI
 ## DefaultState: enabled
+## SavedVariables: ElvUI_ForeverDB
 
 core.lua
 talents.lua
+spellbook.lua

@@ -29,6 +29,7 @@ P["Forever"] = {
 	classbar = true,
 	font = true,
 	talents = true,
+	spellbook = true,
 	units = {
 		player = true,
 		target = true,
@@ -645,6 +646,15 @@ function F:InsertOptions()
 				desc = "All three talent trees side by side in one window, with pet talents and glyphs as further views of it.",
 				get = function() return E.db.Forever.talents end,
 				set = function(_, value) E.db.Forever.talents = value end,
+				disabled = function() return not E.db.Forever.enable end,
+			},
+			spellbook = {
+				order = 4.8,
+				type = "toggle",
+				name = T("Spellbook", "Spellbook"),
+				desc = "All spells of a tab on one page, unlearned spells from the class trainer greyed in between, Clique docked on the right.",
+				get = function() return E.db.Forever.spellbook end,
+				set = function(_, value) E.db.Forever.spellbook = value end,
 				disabled = function() return not E.db.Forever.enable end,
 			},
 			units = {
