@@ -211,9 +211,17 @@ local function UpdateTree(tree, group, preview, pointsLeft)
 	for i = 1, numTalents do
 		local b = tree.buttons[i] or CreateTalentButton(tree)
 		tree.buttons[i] = b
-		local _, tIcon, tier, column, rank, maxRank, _, meetsPrereq, previewRank, meetsPreviewPrereq = GetTalentInfo(t, i, false, false, group)
+		local _, tIcon, tier, column, rank, maxRank, _, _, previewRank = GetTalentInfo(t, i, false, false, group)
 		if preview then
-			rank, meetsPrereq = previewRank, meetsPreviewPrereq
+			rank = previewRank
+		end
+		-- Per prerequisite: tier, column, isLearnable, isPreviewLearnable (met = maxed)
+		local prereqs = {GetTalentPrereqs(t, i, false, false, group)}
+		local meetsPrereq = true
+		for k = 1, #prereqs - 1, 4 do
+			if not prereqs[k + (preview and 3 or 2)] then
+				meetsPrereq = false
+			end
 		end
 		local available = meetsPrereq and treeSpent >= (tier - 1) * POINTS_PER_TIER
 		local lit = rank > 0 or (available and canSpend)
@@ -241,8 +249,6 @@ local function UpdateTree(tree, group, preview, pointsLeft)
 		end
 		b:Show()
 
-		-- Per prerequisite: tier, column, isLearnable, isPreviewLearnable
-		local prereqs = {GetTalentPrereqs(t, i, false, false, group)}
 		for k = 1, #prereqs - 1, 4 do
 			DrawPrereq(tree, prereqs[k], prereqs[k + 1], tier, column, meetsPrereq and COLOR_LINE_ON or COLOR_LINE_OFF)
 		end
