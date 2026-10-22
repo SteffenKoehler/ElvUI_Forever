@@ -206,9 +206,12 @@ local function BuildEntries(tab)
 	end
 
 	local tabName, _, offset, num = GetSpellTabInfo(tab)
+	-- The book holds every rank; like Blizzard's book only the highest one unless
+	-- "Alle Zauberraenge anzeigen" is on (the ranks of a spell follow each other)
+	local allRanks = GetCVarBool("ShowAllSpellRanks")
 	for i = offset + 1, offset + num do
 		local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
-		if name and Matches(name) then
+		if name and Matches(name) and (allRanks or GetSpellName(i + 1, BOOKTYPE_SPELL) ~= name or i == offset + num) then
 			tinsert(list, {index = i, book = BOOKTYPE_SPELL, name = name, rank = rank,
 				icon = GetSpellTexture(i, BOOKTYPE_SPELL), learned = true})
 		end
@@ -326,12 +329,22 @@ local function DockClique()
 	end
 	CliqueFrame:SetParent(Window)
 	CliqueFrame:ClearAllPoints()
-	CliqueFrame:SetPoint("TOPLEFT", Window, "TOPRIGHT", 4, 0)
+	-- Right of the book, or left when the screen edge would push it over the book
+	local scale = CliqueFrame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local width = CliqueFrame:GetWidth() * scale
+	if (Window:GetRight() or 0) + 4 + width <= UIParent:GetRight() then
+		CliqueFrame:SetPoint("TOPLEFT", Window, "TOPRIGHT", 4 / scale, 0)
+	else
+		CliqueFrame:SetPoint("TOPRIGHT", Window, "TOPLEFT", -4 / scale, 0)
+	end
 	CliqueFrame:SetFrameLevel(Window:GetFrameLevel() + 5)
 	if not CliqueFrame.foreverHooked then
 		CliqueFrame.foreverHooked = true
 		-- Closed with its own button: bind mode and tab color follow
-		CliqueFrame:HookScript("OnShow", function() Window:Refresh() end)
+		CliqueFrame:HookScript("OnShow", function()
+			DockClique()
+			Window:Refresh()
+		end)
 		CliqueFrame:HookScript("OnHide", function() Window:Refresh() end)
 	end
 end
@@ -668,6 +681,7 @@ local function Refresh()
 	local _, class = UnitClass("player")
 	SetShown(Window.noData, showUnlearned and currentTab ~= PET_TAB and not DB()[class])
 	Window.unlearnedCheck:SetChecked(showUnlearned)
+	Window.ranksCheck:SetChecked(GetCVarBool("ShowAllSpellRanks"))
 	ParkOverlay()
 end
 
@@ -769,7 +783,7 @@ local function CreateWindow()
 
 	-- Footer: search, pages, unlearned toggle
 	local search = CreateFrame("EditBox", "ForeverSpellbookSearch", Window, "InputBoxTemplate")
-	search:SetSize(200, 20)
+	search:SetSize(150, 20)
 	search:SetPoint("BOTTOMLEFT", Window, "BOTTOMLEFT", MARGIN + 6, 10)
 	search:SetAutoFocus(false)
 	S:HandleEditBox(search)
@@ -805,9 +819,24 @@ local function CreateWindow()
 	end)
 	Window.unlearnedCheck = check
 
+	local ranks = CreateFrame("CheckButton", nil, Window, "UICheckButtonTemplate")
+	ranks:SetSize(22, 22)
+	ranks:SetPoint("BOTTOMLEFT", Window, "BOTTOMLEFT", MARGIN + 170, 9)
+	S:HandleCheckBox(ranks)
+	ranks.label = ranks:CreateFontString(nil, "OVERLAY")
+	ranks.label:FontTemplate(nil, 12, "OUTLINE")
+	ranks.label:SetPoint("LEFT", ranks, "RIGHT", 4, 0)
+	ranks.label:SetText("Alle Ränge")
+	ranks:SetScript("OnClick", function(self)
+		SetCVar("ShowAllSpellRanks", self:GetChecked() and "1" or "0")
+		page = 1
+		Refresh()
+	end)
+	Window.ranksCheck = ranks
+
 	local pager = CreateFrame("Frame", nil, Window)
 	pager:SetSize(110, 22)
-	pager:SetPoint("BOTTOM", Window, "BOTTOM", 0, 9)
+	pager:SetPoint("BOTTOMLEFT", Window, "BOTTOMLEFT", MARGIN + 290, 9)
 	pager.text = pager:CreateFontString(nil, "OVERLAY")
 	pager.text:FontTemplate(nil, 12, "OUTLINE")
 	pager.text:SetPoint("CENTER")
