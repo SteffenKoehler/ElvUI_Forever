@@ -753,6 +753,12 @@ local function Refresh()
 	SetShown(Window.noData, showUnlearned and currentTab ~= PET_TAB and not DB()[class])
 	Window.unlearnedCheck:SetChecked(showUnlearned)
 	Window.ranksCheck:SetChecked(GetCVarBool("ShowAllSpellRanks"))
+	-- Pets learn their abilities with their level and keep one rank: nothing to toggle
+	local pet = currentTab == PET_TAB
+	SetShown(Window.unlearnedCheck, not pet)
+	SetShown(Window.unlearnedCheck.label, not pet)
+	SetShown(Window.ranksCheck, not pet)
+	SetShown(Window.ranksCheck.label, not pet)
 	ParkOverlay()
 end
 
