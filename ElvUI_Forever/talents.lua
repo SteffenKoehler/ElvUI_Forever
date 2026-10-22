@@ -283,6 +283,19 @@ local function UpdateWindow()
 
 	for g, tab in ipairs(Window.specTabs) do
 		SetShown(tab, numGroups > 1)
+		-- Like Blizzard's spec tabs: icon and name of the tree with the most points
+		local mainName, mainIcon, mainPoints
+		for t = 1, NUM_TREES do
+			local name, icon, points = GetTalentTabInfo(t, false, false, g)
+			if points and points > (mainPoints or 0) then
+				mainName, mainIcon, mainPoints = name, icon, points
+			end
+		end
+		if mainName then
+			tab:SetText(format("|T%s:16:16:0:0:64:64:5:59:5:59|t %s", mainIcon, mainName))
+		else
+			tab:SetText("Spec " .. g)
+		end
 		tab.text:SetTextColor(unpack(g == viewGroup and COLOR_MAX or COLOR_WHITE))
 		SetShown(tab.active, g == active)
 	end
@@ -299,12 +312,17 @@ local function OpenBlizzard(glyphs)
 	Window:Hide()
 	if glyphs and ToggleGlyphFrame then
 		ToggleGlyphFrame()
-	else
-		TalentFrame_LoadUI()
-		ShowUIPanel(PlayerTalentFrame)
-		if glyphs and PlayerTalentFrameTab4 then
-			PlayerTalentFrameTab4:Click()
-		end
+		return
+	end
+	TalentFrame_LoadUI()
+	if not glyphs and PlayerTalentFrame_Toggle then
+		-- Opens straight on the pet's talents
+		PlayerTalentFrame_Toggle(true, GetActiveTalentGroup(false, true))
+		return
+	end
+	ShowUIPanel(PlayerTalentFrame)
+	if glyphs and PlayerTalentFrameTab4 then
+		PlayerTalentFrameTab4:Click()
 	end
 end
 
@@ -353,10 +371,17 @@ local function CreateWindow()
 
 	-- Dual spec: view either group, activate the viewed one
 	Window.specTabs = {}
-	-- Blizzard's names ("Erste Talentspezialisierung") do not fit a button
+	-- Blizzard's names ("Erste Talentspezialisierung") do not fit a button: tooltip
+	local specNames = {TALENT_SPEC_PRIMARY or "Primary Talents", TALENT_SPEC_SECONDARY or "Secondary Talents"}
 	for g = 1, 2 do
-		local tab = CreateButton(Window, "Spec " .. g, 80)
-		tab:Point("TOPLEFT", Window, "TOPLEFT", MARGIN + (g - 1) * 84, -6)
+		local tab = CreateButton(Window, "Spec " .. g, 136)
+		tab:Point("TOPLEFT", Window, "TOPLEFT", MARGIN + (g - 1) * 140, -6)
+		tab:HookScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+			GameTooltip:AddLine(specNames[g])
+			GameTooltip:Show()
+		end)
+		tab:HookScript("OnLeave", GameTooltip_Hide)
 		tab.text = tab:GetFontString()
 		tab.active = tab:CreateTexture(nil, "OVERLAY")
 		tab.active:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
@@ -369,7 +394,7 @@ local function CreateWindow()
 		Window.specTabs[g] = tab
 	end
 	Window.activate = CreateButton(Window, TALENT_SPEC_ACTIVATE or "Activate", 170)
-	Window.activate:Point("LEFT", Window.specTabs[2], "RIGHT", 6, 0)
+	Window.activate:Point("TOPRIGHT", Window, "TOPRIGHT", -34, -6)
 	Window.activate:SetScript("OnClick", function()
 		SetActiveTalentGroup(viewGroup)
 	end)
@@ -441,7 +466,9 @@ local function HookTalentFrame()
 	end
 	PlayerTalentFrame.foreverHooked = true
 	PlayerTalentFrame:HookScript("OnShow", function(self)
-		if bypass or not Enabled() or self.pet then
+		-- Not self.pet: it still holds the last view, while the talent key switches to the
+		-- player's talents only after showing. Pet talents come via our button (bypass).
+		if bypass or not Enabled() then
 			return
 		end
 		if PanelTemplates_GetSelectedTab(self) == (GLYPH_TALENT_TAB or 4) then
