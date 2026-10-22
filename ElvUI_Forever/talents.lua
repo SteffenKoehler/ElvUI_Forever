@@ -18,6 +18,7 @@ local COLOR_OPEN = {0.25, 1, 0.25}
 local COLOR_LINE_ON = {1, 0.82, 0}
 local COLOR_LINE_OFF = {0.4, 0.4, 0.4}
 local COLOR_WHITE = {1, 1, 1}
+local COLOR_MINOR = {0.55, 0.75, 1}
 
 local Window
 local viewGroup = 1
@@ -366,8 +367,10 @@ end
 local GLYPH_ATLAS = "Interface\\Spellbook\\UI-GlyphFrame"
 local GLYPH_LOCK = "Interface\\LFGFrame\\UI-LFG-ICON-LOCK"
 -- Atlas pixel rectangles: left, top, right, bottom
--- Inner parchment (the crop ElvUI's glyph skin uses), framed by an ElvUI border
-local GLYPH_PARCHMENT = {21, 72, 336, 412}
+-- Inner parchment without its side ornaments, shown as a grey watermark on the dark
+-- ElvUI background; mirrored copies of its edges continue it to the sides and fade out
+local GLYPH_PARCHMENT = {36, 72, 321, 412}
+local GLYPH_WATERMARK = {shade = 0.55, alpha = 0.35}
 local GLYPH_CENTER = {179, 237} -- center of the circle (fitted to its rings)
 local GLYPH_SPRITE = {
 	ringMinor = {404, 18, 465, 79},
@@ -380,6 +383,8 @@ local GLYPH_SPRITE = {
 -- Socket centers relative to the circle center (atlas pixels, y up): the six circles
 -- printed on the parchment, a regular hexagon of radius 110; 1, 4, 6 are major
 local GLYPH_POS = {{0, 110}, {0, -110}, {-95, 55}, {95, -55}, {95, 55}, {-95, -55}}
+-- Name beside the socket: left of the left sockets, right otherwise
+local GLYPH_LABEL = {"RIGHT", "RIGHT", "LEFT", "RIGHT", "RIGHT", "LEFT"}
 -- Ring, orb and rune size in atlas pixels
 local GLYPH_SIZE = {
 	major = {ring = 86, orb = 62, rune = 56},
@@ -466,15 +471,39 @@ local function CreateGlyphView(height)
 	view:SetTemplate("Default")
 
 	local p = GLYPH_PARCHMENT
+	local wm = GLYPH_WATERMARK
 	local s = (view:GetHeight() - 16) / (p[4] - p[2])
-	local page = CreateFrame("Frame", nil, view)
-	page:SetSize((p[3] - p[1]) * s, (p[4] - p[2]) * s)
-	page:SetPoint("CENTER", view, "CENTER", 0, 0)
-	page:SetTemplate("Default")
-	local art = page:CreateTexture(nil, "BORDER") -- above the ElvUI backdrop
+	local artW, artH = (p[3] - p[1]) * s, (p[4] - p[2]) * s
+	local art = view:CreateTexture(nil, "BORDER") -- above the ElvUI backdrop
 	SetSprite(art, p)
-	art:SetInside(page)
+	art:SetDesaturated(true)
+	art:SetVertexColor(wm.shade, wm.shade, wm.shade)
+	art:SetAlpha(wm.alpha)
+	art:SetSize(artW, artH)
+	art:SetPoint("CENTER", view, "CENTER", 0, 0)
 	view.art = art
+
+	-- Side continuations: the parchment's outer strips, mirrored, fading out to the edge
+	local sideW = (view:GetWidth() - artW) / 2 - 1
+	local stripW = sideW / s
+	for _, left in ipairs({true, false}) do
+		local x0 = left and p[1] or p[3] - stripW
+		local tex = view:CreateTexture(nil, "BORDER")
+		tex:SetTexture(GLYPH_ATLAS)
+		-- Mirrored: the strip's right edge first
+		tex:SetTexCoord((x0 + stripW) / 512, x0 / 512, p[2] / 512, p[4] / 512)
+		tex:SetDesaturated(true)
+		local sh = wm.shade
+		if left then
+			tex:SetGradientAlpha("HORIZONTAL", sh, sh, sh, 0, sh, sh, sh, 1)
+			tex:SetPoint("RIGHT", art, "LEFT", 0, 0)
+		else
+			tex:SetGradientAlpha("HORIZONTAL", sh, sh, sh, 1, sh, sh, sh, 0)
+			tex:SetPoint("LEFT", art, "RIGHT", 0, 0)
+		end
+		tex:SetAlpha(wm.alpha)
+		tex:SetSize(sideW, artH)
+	end
 
 	-- Circle center relative to the art's center
 	local cx = (GLYPH_CENTER[1] - (p[1] + p[3]) / 2) * s
@@ -483,7 +512,7 @@ local function CreateGlyphView(height)
 	view.sockets = {}
 	for i = 1, 6 do
 		local b = CreateFrame("Button", nil, view)
-		b:SetFrameLevel(page:GetFrameLevel() + 3)
+		b:SetFrameLevel(view:GetFrameLevel() + 3)
 		b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 		b:SetPoint("CENTER", art, "CENTER", cx + GLYPH_POS[i][1] * s, cy + GLYPH_POS[i][2] * s)
 		b.scale = s
@@ -508,6 +537,17 @@ local function CreateGlyphView(height)
 		b.hover:SetAlpha(0.5)
 		b.hover:SetPoint("CENTER")
 		b.hover:Hide()
+
+		b.label = b:CreateFontString(nil, "OVERLAY")
+		b.label:FontTemplate(nil, 13, "OUTLINE")
+		b.label:SetWidth(100)
+		if GLYPH_LABEL[i] == "LEFT" then
+			b.label:SetPoint("RIGHT", b, "LEFT", -4, 0)
+			b.label:SetJustifyH("RIGHT")
+		else
+			b.label:SetPoint("LEFT", b, "RIGHT", 4, 0)
+			b.label:SetJustifyH("LEFT")
+		end
 
 		b.socket = i
 		b:SetScript("OnEnter", GlyphOnEnter)
@@ -542,6 +582,7 @@ local function UpdateGlyphView()
 			b.ring:SetDesaturated(true)
 			b.rune:Hide()
 			b.lock:Show()
+			b.label:SetText("")
 		else
 			SetSprite(b.orb, minor and GLYPH_SPRITE.orbMinor or GLYPH_SPRITE.orbMajor)
 			b.orb:SetDesaturated(not active)
@@ -553,11 +594,16 @@ local function UpdateGlyphView()
 				b.rune:SetVertexColor(unpack(minor and RUNE_MINOR or RUNE_MAJOR))
 				b.rune:SetDesaturated(not active)
 				b.rune:Show()
+				-- "Glyphe 'Schimaerenschuss'" -> "Schimaerenschuss"
+				local name = GetSpellInfo(spell) or ""
+				b.label:SetText(name:match("'(.+)'") or name)
+				b.label:SetTextColor(unpack(minor and COLOR_MINOR or COLOR_MAX))
 			else
 				-- Free socket: dim orb
 				b.orb:SetAlpha(0.45)
 				b.rune:Hide()
-				end
+				b.label:SetText("")
+			end
 		end
 		SetShown(b.glow, enabled and active and GlyphMatchesSocket(i))
 	end
