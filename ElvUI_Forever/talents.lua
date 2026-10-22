@@ -199,14 +199,16 @@ local function CreateTree(slot, height, tab, isPet)
 
 	tree.art = {}
 	for i, def in ipairs(ART) do
-		local tex = tree:CreateTexture(nil, "BACKGROUND")
+		-- BORDER, not BACKGROUND: the ElvUI backdrop lives in BACKGROUND and the order
+		-- within one layer is undefined (the backdrop covered the art at random)
+		local tex = tree:CreateTexture(nil, "BORDER")
 		tex:SetAlpha(0.7)
 		tree.art[i] = {tex = tex, def = def}
 	end
 	PlaceArt(tree)
 
 	-- Darker band behind the tree name
-	tree.headerShade = tree:CreateTexture(nil, "BORDER")
+	tree.headerShade = tree:CreateTexture(nil, "ARTWORK")
 	tree.headerShade:SetTexture(E.media.blankTex)
 	tree.headerShade:SetVertexColor(0, 0, 0, 0.55)
 	tree.headerShade:Point("TOPLEFT", tree, "TOPLEFT", 1, -1)
@@ -377,7 +379,7 @@ local GLYPH_SPRITE = {
 -- Socket centers relative to the circle center (atlas pixels, y up); 1, 4, 6 are major
 local GLYPH_POS = {{0, 124}, {0, -124}, {-104, 59}, {105, -59}, {105, 59}, {-106, -59}}
 -- Where the glyph name goes
-local GLYPH_LABEL = {"TOP", "BOTTOM", "LEFT", "RIGHT", "RIGHT", "LEFT"}
+local GLYPH_LABEL = {"RIGHT", "RIGHT", "LEFT", "RIGHT", "RIGHT", "LEFT"}
 -- Ring, orb and rune size in atlas pixels
 local GLYPH_SIZE = {
 	major = {ring = 86, orb = 62, rune = 56},
@@ -461,7 +463,7 @@ local function CreateGlyphView(height)
 
 	local p = GLYPH_PARCHMENT
 	local s = (view:GetHeight() - 8) / (p[4] - p[2])
-	local art = view:CreateTexture(nil, "BACKGROUND")
+	local art = view:CreateTexture(nil, "BORDER") -- above the ElvUI backdrop
 	SetSprite(art, p)
 	art:Size((p[3] - p[1]) * s, (p[4] - p[2]) * s)
 	art:Point("CENTER", view, "CENTER", 0, 0)
