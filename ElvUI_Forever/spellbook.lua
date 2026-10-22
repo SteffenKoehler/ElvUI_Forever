@@ -266,42 +266,47 @@ local function BuildEntries(tab)
 		return list
 	end
 	local known, knownTab = KnownRanks()
-	local nextRank = {}
+	-- "Alle Raenge": every rank still to come, otherwise the next one of each spell
+	local allRanks = GetCVarBool("ShowAllSpellRanks")
+	local unlearned, nextRank = {}, {}
 	for _, e in ipairs(data.entries) do
 		-- Trainer group = tab name; otherwise the tab where a lower rank already is
 		local inTab = e.line == tabName or (knownTab[e.name] == tab and not TabExists(e.line))
-		if inTab and Matches(e.name) then
-			local r = RankNumber(e.rank)
-			local unknown
-			if known[e.name] then
-				unknown = r > known[e.name]
-			else
-				unknown = true
+		if inTab and Matches(e.name) and RankNumber(e.rank) > (known[e.name] or -1) then
+			if allRanks then
+				tinsert(unlearned, e)
 			end
-			if unknown then
-				local best = nextRank[e.name]
-				if not best or RankNumber(best.rank) > r then
-					nextRank[e.name] = e
-				end
+			local best = nextRank[e.name]
+			if not best or RankNumber(best.rank) > RankNumber(e.rank) then
+				nextRank[e.name] = e
 			end
 		end
 	end
-	local unlearned = {}
-	for _, e in pairs(nextRank) do
-		tinsert(unlearned, e)
+	for name, e in pairs(nextRank) do
+		-- Unknown spell whose trainer ranks start above 1: rank 1 is a talent
+		-- (e.g. Sternenregen), the trainer only teaches the later ranks
+		if not known[name] and RankNumber(e.rank) > 1 then
+			local talent = setmetatable({rank = e.rank:gsub("%d+", "1", 1), talent = true}, {__index = e})
+			if allRanks then
+				tinsert(unlearned, talent)
+			else
+				nextRank[name] = talent
+			end
+		end
+		if not allRanks then
+			tinsert(unlearned, nextRank[name])
+		end
 	end
 	sort(unlearned, function(a, b)
 		if a.level ~= b.level then
 			return a.level < b.level
 		end
-		return a.name < b.name
+		if a.name ~= b.name then
+			return a.name < b.name
+		end
+		return RankNumber(a.rank) < RankNumber(b.rank)
 	end)
 	for _, e in ipairs(unlearned) do
-		-- Unknown spell whose trainer ranks start above 1: rank 1 is a talent
-		-- (e.g. Sternenregen), the trainer only teaches the later ranks
-		if not known[e.name] and RankNumber(e.rank) > 1 then
-			e = setmetatable({rank = e.rank:gsub("%d+", "1", 1), talent = true}, {__index = e})
-		end
 		tinsert(list, {name = e.name, rank = e.rank, icon = e.icon, learned = false, data = e})
 	end
 	return list
