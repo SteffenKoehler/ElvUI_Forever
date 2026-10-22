@@ -642,7 +642,7 @@ function F:InsertOptions()
 				order = 4.7,
 				type = "toggle",
 				name = T("Talent Window", "Talent Window"),
-				desc = "All three talent trees side by side in one window. Glyphs and pet talents open Blizzard's talent frame.",
+				desc = "All three talent trees side by side in one window, with pet talents and glyphs as further views of it.",
 				get = function() return E.db.Forever.talents end,
 				set = function(_, value) E.db.Forever.talents = value end,
 				disabled = function() return not E.db.Forever.enable end,
