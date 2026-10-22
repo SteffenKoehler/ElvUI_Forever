@@ -241,8 +241,9 @@ local function UpdateTree(tree, group, preview, pointsLeft)
 		end
 		b:Show()
 
+		-- Per prerequisite: tier, column, isLearnable, isPreviewLearnable
 		local prereqs = {GetTalentPrereqs(t, i, false, false, group)}
-		for k = 1, #prereqs, 3 do
+		for k = 1, #prereqs - 1, 4 do
 			DrawPrereq(tree, prereqs[k], prereqs[k + 1], tier, column, meetsPrereq and COLOR_LINE_ON or COLOR_LINE_OFF)
 		end
 	end
@@ -346,10 +347,10 @@ local function CreateWindow()
 
 	-- Dual spec: view either group, activate the viewed one
 	Window.specTabs = {}
-	local specNames = {TALENT_SPEC_PRIMARY or "Primary", TALENT_SPEC_SECONDARY or "Secondary"}
+	-- Blizzard's names ("Erste Talentspezialisierung") do not fit a button
 	for g = 1, 2 do
-		local tab = CreateButton(Window, specNames[g], 120)
-		tab:Point("TOPLEFT", Window, "TOPLEFT", MARGIN + (g - 1) * 124, -6)
+		local tab = CreateButton(Window, "Spec " .. g, 80)
+		tab:Point("TOPLEFT", Window, "TOPLEFT", MARGIN + (g - 1) * 84, -6)
 		tab.text = tab:GetFontString()
 		tab.active = tab:CreateTexture(nil, "OVERLAY")
 		tab.active:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
@@ -361,7 +362,7 @@ local function CreateWindow()
 		end)
 		Window.specTabs[g] = tab
 	end
-	Window.activate = CreateButton(Window, TALENT_SPEC_ACTIVATE or "Activate", 110)
+	Window.activate = CreateButton(Window, TALENT_SPEC_ACTIVATE or "Activate", 170)
 	Window.activate:Point("LEFT", Window.specTabs[2], "RIGHT", 6, 0)
 	Window.activate:SetScript("OnClick", function()
 		SetActiveTalentGroup(viewGroup)
