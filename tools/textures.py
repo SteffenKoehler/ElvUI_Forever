@@ -10,7 +10,8 @@ Rim.tga     the same rim and outline without the background, drawn above the fil
             it covers the fill's square corners, so the fill looks rounded at any size
 UnitFill    left-to-right gradient 53 % -> 100 %, tinted by the bar color
 CastFill    castbar: glossy fill (bright band at the top, darker towards the bottom,
-            70 -> 100 % left to right), plain without brush strokes"""
+            70 -> 100 % left to right), plain without brush strokes
+Ring.tga    white ring with a dark outline for the round icons of passive spells"""
 import math
 import sys
 from PIL import Image
@@ -118,7 +119,30 @@ def cast_fill():
     save(im, "CastFill")
 
 
+def ring():
+    """White ring (tinted in-game) with a thin dark outline, 64 x 64, band 3 px wide."""
+    S2 = 64
+    c0 = S2 / 2
+    im = Image.new("RGBA", (S2, S2), (0, 0, 0, 0))
+    dist = lambda u, v: math.hypot(u - c0, v - c0)
+    for y in range(S2):
+        for x in range(S2):
+            edge = coverage(lambda u, v: 31 <= dist(u, v) < 32, x, y)
+            band = coverage(lambda u, v: 28 <= dist(u, v) < 31, x, y)
+            inner = coverage(lambda u, v: 27 <= dist(u, v) < 28, x, y)
+            c = (0, 0, 0, 0)
+            if edge:
+                c = over(c, (0, 0, 0, 0.55 * edge))
+            if inner:
+                c = over(c, (0, 0, 0, 0.35 * inner))
+            if band:
+                c = over(c, (1, 1, 1, band))
+            put(im, x, y, c)
+    save(im, "Ring")
+
+
 frame_texture(True)
 frame_texture(False)
 unit_fill()
 cast_fill()
+ring()

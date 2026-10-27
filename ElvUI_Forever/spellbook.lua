@@ -20,6 +20,11 @@ local COLOR_LEVEL = {0.9, 0.31, 0.27}
 local COLOR_NOW = {0.25, 1, 0.25}
 local COLOR_REQ = {0.47, 0.63, 0.86}
 local COLOR_CLIQUE = {0.27, 0.86, 0.27}
+local COLOR_RING = {0.62, 0.6, 0.56} -- the rim gray of the Forever bars
+local COLOR_HEADER_LINE = {0.62, 0.6, 0.56, 0.45}
+
+local RING = "Interface\\AddOns\\ElvUI_Forever\\media\\Ring"
+local HEADER_H = 30
 
 local PET_TAB = 99
 local CLASS_SPELL_IDS -- filled at the end of the file
@@ -312,6 +317,77 @@ local function BuildEntries(tab)
 	return list
 end
 
+-- Passive spells get a round icon like in Retail's book. Unlearned ones: the trainer or the
+-- spell's own rank text says "Passiv"
+local function IsPassive(entry)
+	if entry.learned then
+		return IsPassiveSpell(entry.index, entry.book) and true or false
+	end
+	local e = entry.data
+	if e.rank == SPELL_PASSIVE then
+		return true
+	end
+	local id = UnlearnedSpellID(e)
+	return id and select(2, GetSpellInfo(id)) == SPELL_PASSIVE or false
+end
+
+-- Search: the matches of every tab (and the pet), each under a header with the tab's name
+local function BuildSearchEntries()
+	local list = {}
+	local function add(header, icon, entries)
+		if #entries > 0 then
+			tinsert(list, {header = header, icon = icon})
+			for _, entry in ipairs(entries) do
+				tinsert(list, entry)
+			end
+		end
+	end
+	for t = 1, GetNumSpellTabs() do
+		local name, icon = GetSpellTabInfo(t)
+		add(name, icon, BuildEntries(t))
+	end
+	if (HasPetSpells() or 0) > 0 then
+		add(PET or "Pet", nil, BuildEntries(PET_TAB))
+	end
+	return list
+end
+
+-- Places a list on pages: spells fill rows of COLS, a header starts a new row of its own
+-- and never stays alone at the bottom of a page. Returns pages of {item, x, y}.
+local function Layout(list, height, colW)
+	local pages, cur = {}, {}
+	local y, col = 10, 0
+	local function newPage()
+		tinsert(pages, cur)
+		cur, y, col = {}, 10, 0
+	end
+	for _, item in ipairs(list) do
+		if item.header then
+			if col > 0 then
+				y, col = y + ROW_H, 0
+			end
+			if y + HEADER_H + ROW_H > height and #cur > 0 then
+				newPage()
+			end
+			tinsert(cur, {item = item, x = 12, y = y})
+			y = y + HEADER_H
+		else
+			if y + ROW_H > height then
+				newPage()
+			end
+			tinsert(cur, {item = item, x = 12 + col * colW, y = y})
+			col = col + 1
+			if col == COLS then
+				y, col = y + ROW_H, 0
+			end
+		end
+	end
+	if #cur > 0 or #pages == 0 then
+		tinsert(pages, cur)
+	end
+	return pages
+end
+
 -- Second line of an unlearned entry
 local function UnlearnedInfo(e)
 	if e.talent then
@@ -568,6 +644,17 @@ local function CreateEntry(parent)
 	b.icon:SetInside()
 	b.icon:SetTexCoord(unpack(E.TexCoords))
 
+	-- Passive spells: round icon in a ring instead of the square ElvUI frame
+	-- (SetPortraitToTexture cuts the circle; a texcoord on that texture would break it)
+	b.roundFrame = CreateFrame("Frame", nil, b)
+	b.roundFrame:SetAllPoints(b.iconFrame)
+	b.round = b.roundFrame:CreateTexture(nil, "ARTWORK")
+	b.round:SetPoint("TOPLEFT", 1, -1)
+	b.round:SetPoint("BOTTOMRIGHT", -1, 1)
+	b.ring = b.roundFrame:CreateTexture(nil, "OVERLAY")
+	b.ring:SetAllPoints()
+	b.ring:SetTexture(RING)
+
 	b.name = b:CreateFontString(nil, "OVERLAY")
 	b.name:FontTemplate(nil, 13, "OUTLINE")
 	b.name:SetPoint("TOPLEFT", b.iconFrame, "TOPRIGHT", 8, -1)
@@ -591,25 +678,44 @@ local function CreateEntry(parent)
 	return b
 end
 
+-- Rank text plus "Passiv" for passive spells whose rank says something else ("Rang 2")
+local function RankText(rank, passive)
+	if passive and rank ~= SPELL_PASSIVE then
+		return (rank and rank ~= "") and (rank .. " · " .. SPELL_PASSIVE) or SPELL_PASSIVE
+	end
+	return rank
+end
+
 local function UpdateEntry(b, entry, clique)
 	b.entry = entry
-	b.icon:SetTexture(entry.icon)
+	local passive = IsPassive(entry)
+	SetShown(b.iconFrame, not passive)
+	SetShown(b.roundFrame, passive)
+	local icon = passive and b.round or b.icon
+	if passive then
+		SetPortraitToTexture(b.round, entry.icon)
+	else
+		b.icon:SetTexture(entry.icon)
+	end
 	b.name:SetText(entry.name)
 	if entry.learned then
-		b.icon:SetDesaturated(false)
-		b.icon:SetVertexColor(1, 1, 1)
+		icon:SetDesaturated(false)
+		icon:SetVertexColor(1, 1, 1)
 		b.name:SetTextColor(unpack(COLOR_GOLD))
-		b.sub:SetText(entry.rank or "")
+		b.sub:SetText(RankText(entry.rank, passive) or "")
 		b.sub:SetTextColor(unpack(COLOR_SUB))
 		b.iconFrame:SetBackdropBorderColor(unpack(clique and COLOR_CLIQUE or E.media.bordercolor))
+		b.ring:SetVertexColor(unpack(clique and COLOR_CLIQUE or COLOR_RING))
 	else
-		b.icon:SetDesaturated(true)
-		b.icon:SetVertexColor(0.6, 0.6, 0.6)
+		icon:SetDesaturated(true)
+		icon:SetVertexColor(0.6, 0.6, 0.6)
 		b.name:SetTextColor(unpack(COLOR_DIM))
 		local info, color = UnlearnedInfo(entry.data)
-		b.sub:SetText((entry.rank and (entry.rank .. " · ") or "") .. info)
+		local rank = RankText(entry.rank, passive)
+		b.sub:SetText((rank and (rank .. " · ") or "") .. info)
 		b.sub:SetTextColor(unpack(color))
 		b.iconFrame:SetBackdropBorderColor(0.2, 0.2, 0.2)
+		b.ring:SetVertexColor(0.3, 0.3, 0.3)
 	end
 	b:Show()
 end
@@ -694,7 +800,8 @@ local function UpdateTabs()
 			tab:ClearAllPoints()
 			tab:SetPoint("TOPLEFT", Window, "TOPLEFT", x, -TOP_BAR)
 			x = x + tab:GetWidth() + 4
-			tab.text:SetTextColor(unpack(t == currentTab and COLOR_GOLD or COLOR_WHITE))
+			-- Search results cover all tabs: none is marked as the current one
+			tab.text:SetTextColor(unpack(t == currentTab and not searchText and COLOR_GOLD or COLOR_WHITE))
 			tab:Show()
 		else
 			tab:Hide()
@@ -704,7 +811,7 @@ local function UpdateTabs()
 	if (HasPetSpells() or 0) > 0 then
 		pet:ClearAllPoints()
 		pet:SetPoint("TOPLEFT", Window, "TOPLEFT", x, -TOP_BAR)
-		pet.text:SetTextColor(unpack(currentTab == PET_TAB and COLOR_GOLD or COLOR_WHITE))
+		pet.text:SetTextColor(unpack(currentTab == PET_TAB and not searchText and COLOR_GOLD or COLOR_WHITE))
 		pet:Show()
 	else
 		pet:Hide()
@@ -728,21 +835,38 @@ local function Refresh()
 	UpdateTabs()
 	SetArt(TabBackground(currentTab))
 
-	local list = BuildEntries(currentTab)
-	local perPage = Window.rows * COLS
-	local pages = math.max(1, ceil(#list / perPage))
+	local list = searchText and BuildSearchEntries() or BuildEntries(currentTab)
+	local content = Window.content
+	local layout = Layout(list, content:GetHeight() - 2, Window.colW)
+	local pages = #layout
 	if page > pages then
 		page = pages
 	end
 	local clique = CliqueOpen()
-	local first = (page - 1) * perPage
-	for slot, b in ipairs(Window.entries) do
-		local entry = list[first + slot]
-		if entry then
-			UpdateEntry(b, entry, clique)
+	local nEntry, nHeader = 0, 0
+	for _, cell in ipairs(layout[page]) do
+		local item = cell.item
+		local b
+		if item.header then
+			nHeader = nHeader + 1
+			b = Window.headers[nHeader] or Window:CreateHeader()
+			b.icon:SetTexture(item.icon)
+			SetShown(b.icon, item.icon ~= nil)
+			b.text:SetText(item.header)
+			b:Show()
 		else
-			b:Hide()
+			nEntry = nEntry + 1
+			b = Window.entries[nEntry] or Window:CreateEntry()
+			UpdateEntry(b, item, clique)
 		end
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", content, "TOPLEFT", cell.x, -cell.y)
+	end
+	for i = nEntry + 1, #Window.entries do
+		Window.entries[i]:Hide()
+	end
+	for i = nHeader + 1, #Window.headers do
+		Window.headers[i]:Hide()
 	end
 
 	SetShown(Window.cliqueHint, clique)
@@ -765,7 +889,13 @@ end
 local function SelectTab(tab)
 	currentTab = tab
 	page = 1
-	Refresh()
+	-- A tab click leaves the search results (clearing the box refreshes)
+	if searchText then
+		ForeverSpellbookSearch:SetText("")
+		ForeverSpellbookSearch:ClearFocus()
+	else
+		Refresh()
+	end
 end
 
 local function CreateWindow()
@@ -827,16 +957,36 @@ local function CreateWindow()
 	Window.clique:SetPoint("TOPRIGHT", Window, "TOPRIGHT", -MARGIN, -TOP_BAR)
 	Window.clique:SetScript("OnClick", ToggleClique)
 
-	-- Entries
-	Window.rows = floor((content:GetHeight() - 12) / ROW_H)
+	-- Entries and section headers (search results), created as the pages need them
+	Window.colW = (W - 2 * MARGIN - 24) / COLS
 	Window.entries = {}
-	local colW = (W - 2 * MARGIN - 24) / COLS
-	for slot = 1, Window.rows * COLS do
+	Window.headers = {}
+	function Window:CreateEntry()
 		local b = CreateEntry(content)
-		local col, row = (slot - 1) % COLS, floor((slot - 1) / COLS)
-		b:SetPoint("TOPLEFT", content, "TOPLEFT", 12 + col * colW, -(10 + row * ROW_H))
 		b:SetFrameLevel(content:GetFrameLevel() + 2)
-		Window.entries[slot] = b
+		tinsert(self.entries, b)
+		return b
+	end
+	function Window:CreateHeader()
+		local h = CreateFrame("Frame", nil, content)
+		h:SetSize(W - 2 * MARGIN - 24, HEADER_H)
+		h:SetFrameLevel(content:GetFrameLevel() + 2)
+		h.icon = h:CreateTexture(nil, "ARTWORK")
+		h.icon:SetSize(18, 18)
+		h.icon:SetPoint("LEFT", h, "LEFT", 0, 2)
+		h.icon:SetTexCoord(unpack(E.TexCoords))
+		h.text = h:CreateFontString(nil, "OVERLAY")
+		h.text:FontTemplate(nil, 15, "OUTLINE")
+		h.text:SetPoint("LEFT", h.icon, "RIGHT", 6, 0)
+		h.text:SetTextColor(unpack(COLOR_GOLD))
+		h.line = h:CreateTexture(nil, "ARTWORK")
+		h.line:SetTexture(E.media.blankTex)
+		h.line:SetVertexColor(unpack(COLOR_HEADER_LINE))
+		h.line:SetHeight(1)
+		h.line:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", 0, 5)
+		h.line:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", 0, 5)
+		tinsert(self.headers, h)
+		return h
 	end
 
 	Window.cliqueHint = CreateFrame("Frame", nil, content)
