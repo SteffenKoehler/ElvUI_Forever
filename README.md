@@ -7,16 +7,24 @@ It also brings a talent window and a spellbook in ElvUI style.
 
 Only hooks, ElvUI itself is not modified, so ElvUI updates keep working.
 
+![Player and target frames with aura bars](docs/images/unitframes.png)
+
 ## Units
 
 Player, target, target of target, focus, focus target, pet, pet target, party (incl. party
 pets and targets), their castbars, aura bars, runes and combo points. Each one can be
 switched on or off in the ElvUI options under **Forever**.
 
+![Death knight runes above the player frame](docs/images/runes.png)
+
 ## Talent window
 
 All three talent trees side by side with their tree art, dual spec switching, preview
 points (learn / reset), pet talents and glyphs as views of the same window.
+
+![Talent window with three trees](docs/images/talents.png)
+
+![Glyph view](docs/images/glyphs.png)
 
 ## Spellbook
 
@@ -27,6 +35,10 @@ points (learn / reset), pet talents and glyphs as views of the same window.
 - Passive spells have a round icon and are marked "Passiv".
 - The search box finds spells in all tabs (and the pet), grouped under the tab names.
 - Clique: the Clique window docks next to the book, a click on a spell binds it.
+
+![Spellbook with learned, passive and unlearned spells](docs/images/spellbook.png)
+
+![Search across all tabs](docs/images/spellbook-search.png)
 
 ## Textures
 
