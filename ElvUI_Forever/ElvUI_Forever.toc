@@ -2,7 +2,7 @@
 ## Title: |cff1784d1E|r|cffe5e3e3lvUI|r |cffffd100Forever|r
 ## Notes: Unit frame bars in the look of the Forever Modern nameplates, plus a talent window and a spellbook in ElvUI style.
 ## Author: Steffen Köhler
-## Version: 1.0.0
+## Version: 1.1.0
 ## RequiredDeps: ElvUI
 ## DefaultState: enabled
 ## SavedVariables: ElvUI_ForeverDB
