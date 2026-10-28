@@ -11,6 +11,7 @@ local TREE_PAD, HEADER, TREE_BOTTOM = 14, 40, 12
 local TREE_W = 2 * TREE_PAD + (NUM_COLUMNS - 1) * STEP_X + BUTTON
 local TREE_GAP, MARGIN, TOP_BAR, FOOTER = 8, 10, 34, 40
 local CONTENT_W = NUM_TREES * TREE_W + (NUM_TREES - 1) * TREE_GAP
+local VIEW_TABS_X = 150 -- left edge of the view tabs, right of "Talent Points: NN"
 local LINE = 2
 
 local COLOR_MAX = {1, 0.82, 0}
@@ -686,6 +687,16 @@ local function UpdateWindow()
 		tab.text:SetTextColor(unpack(mode == viewMode and COLOR_MAX or COLOR_WHITE))
 	end
 	SetShown(Window.viewTabs.pet, HasPetTalents())
+	-- Shown view tabs in a row from the left, after the talent points: centered they ran
+	-- into Learn / Reset on the right
+	local x = VIEW_TABS_X
+	for _, tab in ipairs(Window.viewOrder) do
+		if tab:IsShown() then
+			tab:ClearAllPoints()
+			tab:Point("BOTTOMLEFT", Window, "BOTTOMLEFT", x, 9)
+			x = x + tab:GetWidth() + 4
+		end
+	end
 end
 
 local function CreateButton(parent, text, width)
@@ -795,9 +806,10 @@ local function CreateWindow()
 		{"pet", PET or "Pet"},
 		{"glyphs", GLYPHS or "Glyphs"},
 	}
+	Window.viewOrder = {}
 	for i, v in ipairs(views) do
 		local tab = CreateButton(Window, v[2])
-		tab:Point("BOTTOM", Window, "BOTTOM", (i - 2) * 96, 9)
+		Window.viewOrder[i] = tab
 		tab:SetScript("OnClick", function()
 			SetView(v[1])
 		end)
