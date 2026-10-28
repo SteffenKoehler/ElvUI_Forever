@@ -86,7 +86,8 @@ def frame_texture(with_background):
             inside = coverage(lambda u, v: rrect_sdf(u, v, *RECT, R) < -RIM, x, y)
             edge = coverage(lambda u, v: 0 <= rrect_sdf(u, v, *RECT, R) < 1, x, y)
             if edge:
-                c = over(c, (0, 0, 0, 0.55 * edge))
+                # 0.3: the 1 px rim puts the outline exactly on one texel, 0.55 read as black
+                c = over(c, (0, 0, 0, 0.3 * edge))
             if inside and with_background:
                 t = clamp((py - 3.5) / 9.0)
                 base = 0.88 + 0.08 * (2 * t - 1) ** 2
