@@ -4,7 +4,7 @@ Usage: python tools/textures.py [outdir]   (default ElvUI_Forever/media)
 
 Bar.tga     warm dark gray, nearly opaque background (unit frames sit on the game world; the
             nameplates' 60-80 % let the ground show through on large castbars) with a
-            1.5 px light gray rim, rounded corners (radius 4) and a thin dark outline;
+            1 px light gray rim, rounded corners (radius 3.4) and a thin dark outline;
             region 88,0 - 220,18, nine-slice margins 6/9/6/8
 Rim.tga     the same rim and outline without the background, drawn above the fill:
             it covers the fill's square corners, so the fill looks rounded at any size
@@ -63,11 +63,12 @@ def save(im, name):
 
 
 # Region 88,0 - 220,18 (132 x 18) in a 256 x 32 texture. Placed around a bar with the
-# outsets 3/5/3/5 the rim lies 1.5 px outside the bar.
+# outsets 3/5/3/5 the rim lies 1 px outside the bar (2 screen px, as thin as retail's).
+# The corner radius must stay <= 3.41 x RIM, or the fill's square corners poke out of the rim.
 X0, W, H = 88, 132, 18
-RECT = (1.5, 1.5, W - 3.5, 14.5)
-R = 4
-RIM = 1.5
+RECT = (2, 2, W - 4, 14)
+R = 3.4
+RIM = 1.0
 RIM_COL = (0.62, 0.6, 0.56)
 # Warm dark gray instead of black: missing health / an empty castbar read as an empty
 # bar, not as a hole (black was too hard next to light fills)

@@ -17,7 +17,7 @@ local FONT, FONT_SIZE, FONT_OUTLINE = STANDARD_TEXT_FONT, 12, "OUTLINE"
 
 -- Bar.tga / Rim.tga: region 88,0 - 220,18 in 256 x 32, nine-slice margins left, right,
 -- top, bottom (tools/textures.py). Placed around a bar with OUTSETS (left, right, top,
--- bottom) the rim lies 1.5 px outside the bar.
+-- bottom) the rim lies 1 px outside the bar.
 local ART = {tw = 256, th = 32, x0 = 88, y0 = 0, x1 = 220, y1 = 18, l = 6, r = 9, t = 6, b = 8}
 local OUTSETS = {3, 5, 3, 5}
 
@@ -435,7 +435,7 @@ end
 
 -- Death knight runes and combo points: every segment its own Forever bar, with room
 -- between them for the rims
-local SEGMENT_GAP = 6 -- px between two segments (each rim lies 1.5 px outside its bar)
+local SEGMENT_GAP = 6 -- px between two segments (each rim lies 1 px outside its bar)
 local SEGMENT_LIFT = 3 -- the segment rims would otherwise touch the health rim below
 -- keepEmpty: segments that are hidden while not built up (combo points) keep their
 -- background and rim as an empty slot: the art hangs on the container, not on the segment
