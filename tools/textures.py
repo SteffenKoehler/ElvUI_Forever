@@ -4,9 +4,10 @@ Usage: python tools/textures.py [outdir]   (default ElvUI_Forever/media)
 
 Bar.tga     warm dark gray, nearly opaque background (unit frames sit on the game world; the
             nameplates' 60-80 % let the ground show through on large castbars) with a
-            1 px light gray rim, rounded corners (radius 3.4) and a thin dark outline;
+            1 px light gray rim, rounded corners (radius 3.4), a thin dark outline and a
+            dark line inside the rim;
             region 88,0 - 220,18, nine-slice margins 6/9/6/8
-Rim.tga     the same rim and outline without the background, drawn above the fill:
+Rim.tga     the same rim and lines without the background, drawn above the fill:
             it covers the fill's square corners, so the fill looks rounded at any size
 UnitFill    left-to-right gradient 53 % -> 100 %, tinted by the bar color
 CastFill    castbar: glossy fill (bright band at the top, darker towards the bottom,
@@ -85,6 +86,9 @@ def frame_texture(with_background):
             rim = coverage(lambda u, v: -RIM <= rrect_sdf(u, v, *RECT, R) < 0, x, y)
             inside = coverage(lambda u, v: rrect_sdf(u, v, *RECT, R) < -RIM, x, y)
             edge = coverage(lambda u, v: 0 <= rrect_sdf(u, v, *RECT, R) < 1, x, y)
+            # dark line just inside the rim, over the fill's edge (as on retail): separates
+            # a light fill from the light rim
+            inner = coverage(lambda u, v: -RIM - 1 <= rrect_sdf(u, v, *RECT, R) < -RIM, x, y)
             if edge:
                 # 0.3: the 1 px rim puts the outline exactly on one texel, 0.55 read as black
                 c = over(c, (0, 0, 0, 0.3 * edge))
@@ -94,6 +98,8 @@ def frame_texture(with_background):
                 dd = max(0.0, -d - 1.5)
                 a = base + (1 - base) * 0.78 * 0.5 ** dd
                 c = over(c, BG_COL + (a * inside,))
+            if inner:
+                c = over(c, (0, 0, 0, 0.35 * inner))
             if rim:
                 c = over(c, RIM_COL + (rim,))
             put(im, X0 + x, y, c)
